@@ -1,0 +1,70 @@
+name: Build and release DriveLink
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: drivelink-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - name: Resolve version
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          [xml]$project = Get-Content DriveLink.csproj
+          $version = [string]$project.Project.PropertyGroup.Version
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid project version.' }
+          if ($env:REF_TYPE -eq 'tag' -and $env:REF_NAME -ne "v$version") { throw 'Tag must match project version.' }
+          "value=$version" >> $env:GITHUB_OUTPUT
+      - name: Verify app
+        run: |
+          dotnet run --project tests/DriveLink.Checks.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'Application checks failed.' }
+      - name: Archive source and framework build
+        run: ./scripts/Build-Release.ps1
+      - name: Build portable Windows x64 package
+        run: ./scripts/Publish-Portable.ps1
+      - name: Publish private repository release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ steps.version.outputs.value }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          $version = $env:RELEASE_VERSION
+          $tag = "v$version"
+          gh release view $tag --repo $env:GH_REPO *> $null
+          if ($LASTEXITCODE -eq 0) { throw 'Release already exists; bump the version instead of overwriting it.' }
+          $notes = @"
+          DriveLink — Quang Huy · v$version
+
+          Tải DriveLink-v$version-win-x64.zip, giải nén toàn bộ và mở DriveLink.exe.
+          Bản Windows 64-bit có sẵn .NET, không cần cài runtime riêng.
+          Cloud lấy OAuth có kết nối mặc định; Ctrl+Shift+A mở xác thực quản trị.
+          Xem CLOUD-OAUTH.md trong gói để biết thiết lập và nâng cấp Cloud.
+
+          Bản phát hành thuộc repository Private: chỉ tài khoản GitHub có quyền truy cập tải được.
+          Kèm SHA-256 và mã nguồn. Chưa ký mã Windows; Windows có thể hiển thị cảnh báo nhà phát hành.
+          "@
+          $notesPath = Join-Path $env:RUNNER_TEMP 'drivelink-release-notes.md'
+          $notes | Set-Content -LiteralPath $notesPath -Encoding utf8
+          gh release create $tag "artifacts/DriveLink-v$version-win-x64.zip" "artifacts/DriveLink-v$version-win-x64.zip.sha256" "versions/v$version/source-v$version.zip" --repo $env:GH_REPO --target $env:RELEASE_COMMIT --title "DriveLink v$version — Quang Huy" --notes-file $notesPath
+          if ($LASTEXITCODE -ne 0) { throw 'Release publishing failed.' }
