@@ -1,28 +1,32 @@
-# GitHub riêng tư và phát hành DriveLink
+# GitHub và cập nhật DriveLink
 
-Repository: https://github.com/Quhuy007/DriveLink-Desktop
+Repository công khai: https://github.com/Quhuy007/DriveLink-Desktop
+Trang tải: https://github.com/Quhuy007/DriveLink-Desktop/releases/latest
 
-## Tải từ máy khác
+## Cài trên máy mới hoặc nâng từ bản cũ
 
-Đăng nhập GitHub bằng tài khoản Quhuy007 hoặc tài khoản đã được cấp quyền cho repository. Mở repository → Releases → chọn bản → tải `DriveLink-vX.Y.Z-win-x64.zip`. Giải nén toàn bộ vào thư mục riêng rồi chạy DriveLink.exe. Bản ZIP này có sẵn .NET, khác các bản framework-dependent cũ trong versions/.
+Tải `QuangHuy.DriveLink-win-x64-Setup.exe`, thoát DriveLink đang chạy rồi cài. Windows x64, đã có sẵn .NET. Bản 0.7.2 và các EXE/ZIP framework cũ cần cài Setup một lần để bật cơ chế cập nhật. Có thể dùng Portable do Velopack đóng gói nếu không muốn cài; cần giữ toàn bộ cấu trúc thư mục.
 
-Repository Private giữ mã nguồn và Release riêng tư. Đường dẫn tải không tự cấp quyền: người chưa đăng nhập hoặc chưa được mời sẽ không tải được. Không nhúng token GitHub vào app để làm đường tải chung. Nếu cần cho người khác tải, cấp quyền repository cho đúng tài khoản GitHub. Bản ZIP chưa ký mã Windows; nếu Windows hỏi nhà phát hành, kiểm tra nguồn tải và SHA-256 đi kèm.
+Tài khoản, OAuth và cài đặt nằm tại `%LOCALAPPDATA%\DriveLink`, tách khỏi thư mục cài đặt. Không xóa thư mục dữ liệu này khi nâng cấp. Chưa ký mã Windows; bộ cài có thể hiển thị cảnh báo nhà phát hành.
 
-## Phát hành tự động
+## Cập nhật từ app
 
-Workflow `.github/workflows/release.yml` chạy trên Windows khi đẩy tag `vX.Y.Z`; cũng có thể chạy thủ công từ Actions → Build and release DriveLink → Run workflow. Workflow kiểm tra app, lưu ZIP mã nguồn, đóng gói Windows x64 có .NET và tạo Release cùng SHA-256. Quyền workflow là contents: write trong repository này; dùng GITHUB_TOKEN tạm thời, không cần thêm token cá nhân hoặc mật khẩu Cloud.
+App kiểm tra khi mở và mỗi 6 giờ, báo bản mới ở đầu cửa sổ. Mở “Kiểm tra cập nhật” ở thanh bên hoặc Cài đặt → Cập nhật để kiểm tra thủ công, đọc thay đổi, tải/cài hoặc để sau. Có thể tắt kiểm tra tự động. App không tự khởi động lại nếu chưa yêu cầu cập nhật; cài đặt chờ các lượt gửi/nhận hoàn tất. Tải hỏng hoặc hủy tải không thay thế phiên bản đang dùng.
 
-Quy trình phiên bản mới:
+Nguồn cập nhật là GitHub Releases công khai, không cần tài khoản hoặc token GitHub. Gói được kiểm tra toàn vẹn trước khi cài. Cập nhật giao diện, chức năng nhỏ hoặc lớn đều dùng cùng quy trình; thư viện và runtime được đóng gói cùng app. Thay đổi dữ liệu cần viết chuyển đổi tương thích và kiểm tra trước khi phát hành. SQL Cloud không tự chạy từ trình cập nhật.
 
-1. Cập nhật mã nguồn, `<Version>` trong DriveLink.csproj và CHANGELOG.md.
+## Phát hành phiên bản mới
+
+1. Sửa mã nguồn; tăng `<Version>` trong DriveLink.csproj; cập nhật CHANGELOG.md và RELEASE-NOTES.md.
 2. Đưa commit mới lên main.
-3. Tạo tag `vX.Y.Z` trùng Version hoặc chạy workflow thủ công ở commit đó.
-4. Chờ workflow thành công và mở Releases để tải.
+3. Tạo tag `vX.Y.Z` trùng Version hoặc Actions → Build and release DriveLink → Run workflow.
+4. Workflow kiểm tra app, đóng gói Setup/Portable, gói cập nhật đầy đủ và feed `releases.win-x64.json`, rồi tạo Release.
+5. Kiểm tra Release hoàn tất. Máy cũ sẽ thấy bản mới trong lần kiểm tra tiếp theo.
 
-Workflow không ghi đè Release đã có. Muốn sửa bản đã phát hành, tăng số phiên bản. Chạy workflow/tag sẽ dùng tài nguyên GitHub Actions theo gói tài khoản của bạn. Chỉ giữ mã nguồn và tài nguyên cần thiết trong Git; các bản cũ trên máy vẫn nằm trong versions/, không bị xóa và không đưa cả thư mục này vào Git.
+Giữ nguyên packId `QuangHuy.DriveLink` và channel `win-x64` giữa các phiên bản. Luôn tải lên feed và `.nupkg` cùng Setup/Portable; chỉ tải Setup không đủ cho máy cũ cập nhật. Không ghi đè bản phát hành cũ: sửa lỗi bằng số phiên bản mới. Workflow dùng GITHUB_TOKEN tạm thời với quyền contents:write, không cần mật khẩu Cloud. Các bản lưu trên máy ở versions/ vẫn được giữ lại.
 
-## Thông tin kết nối
+## Dữ liệu được công khai
 
-CloudBuildSettings.cs chứa định danh kết nối công khai được đóng gói. Không đưa Google token, OAuth JSON thật, mật khẩu quản trị/reader/cấu hình, accounts.dat, preferences.dat, .env hoặc secret/service_role vào Git. Gói phát hành không chứa dữ liệu tài khoản đã lưu của máy xây dựng. Mật khẩu admin vẫn nhập khi sử dụng; mật khẩu OAuth vẫn cần để mở khóa JSON tải từ Cloud.
+Mã nguồn, tài nguyên giao diện, định danh kết nối Cloud công khai và bộ cài được phát hành. Không đưa Google token, OAuth JSON thật, mật khẩu, accounts.dat, preferences.dat, .env, secret/service_role hoặc khóa ký vào Git. Mật khẩu OAuth vẫn cần để giải mã cấu hình Cloud; mật khẩu quản trị vẫn cần để mở chức năng quản trị và quyền được kiểm tra tại máy chủ.
 
-Tài liệu: https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases
+Tài liệu: https://docs.velopack.io/getting-started/csharp

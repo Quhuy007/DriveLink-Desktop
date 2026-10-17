@@ -3,6 +3,12 @@ using System.Windows.Threading;
 namespace DriveLink;
 public partial class App : Application
 {
+    [STAThread]
+    private static void Main(string[] args)
+    {
+        Velopack.VelopackApp.Build().SetAutoApplyOnStartup(false).Run();
+        var app = new App(); app.InitializeComponent(); app.Run();
+    }
     private Mutex? instance;
     private EventWaitHandle? wake;
     private RegisteredWaitHandle? wait;

@@ -21,6 +21,11 @@ public partial class MainWindow : Window
     private readonly LocalFileHistory history;
     private readonly FolderCompressor compressor = new();
     private readonly TrayController tray;
+    private readonly AppUpdateFlow appUpdates = new(new VelopackUpdateBackend());
+    private readonly DispatcherTimer updateTimer = new() { Interval = TimeSpan.FromHours(6) };
+    private UpdateWindow? updateWindow;
+    private bool installingUpdate;
+    private bool resumePoll, resumeSpeed, resumeUpdates;
     private bool exitRequested, folderOpening;
     private readonly TransferLane uploads = new(), downloads = new();
     private readonly HashSet<string> downloadTargets = new(StringComparer.OrdinalIgnoreCase);
@@ -72,6 +77,8 @@ public partial class MainWindow : Window
         };
         ReloadAccounts();
         poll.Tick += async (_, _) => await RefreshAsync(true);
+        appUpdates.Changed += () => { if (!lifetime.IsCancellationRequested) Dispatcher.BeginInvoke(RenderUpdateNotice); };
+        updateTimer.Tick += async (_, _) => { if (state.Settings.CheckUpdatesOnStartup) await appUpdates.CheckAsync(lifetime.Token); };
     }
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
@@ -80,21 +87,56 @@ public partial class MainWindow : Window
         Top = Math.Clamp(Top, area.Top, Math.Max(area.Top, area.Bottom - ActualHeight));
         ApplyUserSettings(); RenderFiles(); speedTimer.Start();
         if (Environment.GetCommandLineArgs().Contains("--background") && state.Settings.RunInBackground) HideToTray();
+        if (state.Settings.CheckUpdatesOnStartup) _ = appUpdates.CheckAsync(lifetime.Token);
+        updateTimer.Start();
         await RefreshAsync(); poll.Start();
     }
     private void ApplyUserSettings()
     {
         tray.Visible = state.Settings.RunInBackground;
+        if (state.Settings.StartWithWindows && StartupRegistration.IsEnabled())
+        {
+            try { StartupRegistration.SetEnabled(true); } catch (Exception ex) { StatusLabel.Text = "Chưa cập nhật được đường dẫn khởi động Windows: " + ex.Message; }
+        }
         var opacity = Math.Clamp(state.Settings.DropOverlayOpacity, 0, 1);
         DropOverlay.Background = new SolidColorBrush(Color.FromArgb((byte)(255 * opacity), 237, 242, 255));
     }
     public void ShowFromTray() { Show(); ShowInTaskbar = true; if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal; Activate(); }
     private void HideToTray() { tray.Visible = true; Hide(); ShowInTaskbar = false; }
+    private void RenderUpdateNotice()
+    {
+        if (lifetime.IsCancellationRequested) return;
+        UpdateNotice.Visibility = appUpdates.Available is not null ? Visibility.Visible : Visibility.Collapsed;
+        if (appUpdates.Available is { } update) UpdateNoticeText.Text = $"Có DriveLink {update.Version} mới. Xem thay đổi và cập nhật khi bạn sẵn sàng.";
+    }
+    private void Updates_Click(object sender, RoutedEventArgs e) => OpenUpdates(this);
+    private void OpenUpdates(Window owner)
+    {
+        if (updateWindow is not null) { updateWindow.Activate(); return; }
+        updateWindow = new UpdateWindow(appUpdates, PrepareUpdateRestart, RestoreAfterUpdateFailure) { Owner = owner };
+        updateWindow.Closed += (_, _) => updateWindow = null;
+        updateWindow.ShowDialog();
+    }
+    private bool PrepareUpdateRestart()
+    {
+        if (busy || refreshing || HasTransfers || lifetime.IsCancellationRequested) return false;
+        store.Save(state);
+        resumePoll = poll.IsEnabled; resumeSpeed = speedTimer.IsEnabled; resumeUpdates = updateTimer.IsEnabled;
+        installingUpdate = true; exitRequested = true;
+        poll.Stop(); speedTimer.Stop(); updateTimer.Stop(); IsEnabled = false;
+        return true;
+    }
+    private void RestoreAfterUpdateFailure()
+    {
+        if (!installingUpdate) return;
+        installingUpdate = false; exitRequested = false; IsEnabled = true;
+        if (!lifetime.IsCancellationRequested) { if (resumePoll) poll.Start(); if (resumeSpeed) speedTimer.Start(); if (resumeUpdates) updateTimer.Start(); }
+    }
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         if (state.Settings.RunInBackground && !exitRequested && !busy) { e.Cancel = true; HideToTray(); return; }
         if ((busy || HasTransfers) && MessageBox.Show(this, "Một thao tác đang thực hiện. Đóng ứng dụng sẽ hủy thao tác đó. Tiếp tục đóng?", "Đóng DriveLink", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) { e.Cancel = true; exitRequested = false; return; }
-        poll.Stop(); speedTimer.Stop(); lifetime.Cancel(); operation?.Cancel(); uploads.CancelAll(); downloads.CancelAll();
+        poll.Stop(); speedTimer.Stop(); updateTimer.Stop(); lifetime.Cancel(); operation?.Cancel(); uploads.CancelAll(); downloads.CancelAll();
     }
     private void ReloadAccounts()
     {
@@ -136,6 +178,7 @@ public partial class MainWindow : Window
     }
     private async Task RunAsync(Func<CancellationToken, Task> work)
     {
+        if (installingUpdate) return;
         if (busy || refreshing || HasTransfers) { StatusLabel.Text = "Hãy chờ truyền file/thao tác hiện tại hoàn tất trước khi thay đổi kết nối hoặc không gian."; return; }
         operation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
         SetBusy(true);
@@ -151,6 +194,7 @@ public partial class MainWindow : Window
     }
     private bool Ready(bool space = true)
     {
+        if (installingUpdate) return false;
         if (demo) { MessageBox.Show(this, "Đây là dữ liệu minh họa. Bấm Thoát xem thử rồi kết nối Google để sử dụng thật.", "Xem thử"); return false; }
         if (CurrentAccount is null) { MessageBox.Show(this, "Thêm tài khoản Google trước khi tiếp tục.", "Chưa kết nối"); return false; }
         if (space && CurrentSpace is null) { MessageBox.Show(this, "Tạo hoặc chọn một không gian chung trước.", "Chưa có không gian"); return false; }
@@ -158,7 +202,7 @@ public partial class MainWindow : Window
     }
     private async Task RefreshAsync(bool background = false)
     {
-        if (busy || refreshing || demo || lifetime.IsCancellationRequested) return;
+        if (installingUpdate || busy || refreshing || demo || lifetime.IsCancellationRequested) return;
         if (CurrentAccount is not { } account)
         {
             SpaceTitle.Text = "Chia sẻ giữa các máy, thật đơn giản.";
@@ -248,7 +292,7 @@ public partial class MainWindow : Window
     {
         if (busy || refreshing || HasTransfers) { StatusLabel.Text = "Chờ truyền file hoàn tất trước khi thay đổi tài khoản."; return; }
         poll.Stop();
-        var dialog = new SettingsWindow(state, store) { Owner = this };
+        var dialog = new SettingsWindow(state, store, OpenUpdates) { Owner = this };
         dialog.ShowDialog();
         ApplyUserSettings();
         poll.Start();

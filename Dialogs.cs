@@ -30,10 +30,11 @@ public class PromptWindow : Window
 }
 public class SettingsWindow : Window
 {
-    public SettingsWindow(SavedState state, SecureStore store)
+    public SettingsWindow(SavedState state, SecureStore store, Action<Window>? openUpdates = null)
     {
         Title = "Cài đặt — DriveLink · Quang Huy"; Width = 680; Height = 760; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var installed = CompressionTools.Detect();
+        var autoUpdates = new CheckBox { Content = "Tự kiểm tra phiên bản mới khi mở app và mỗi 6 giờ", IsChecked = state.Settings.CheckUpdatesOnStartup, Margin = new(0, 18, 0, 16) };
         var showOverlay = new CheckBox { Content = "Hiển thị lớp thông báo khi kéo file vào app", IsChecked = state.Settings.ShowDropOverlay, Margin = new(0, 12, 0, 12) };
         var opacity = new Slider { Minimum = 0, Maximum = 100, Value = Math.Clamp(state.Settings.DropOverlayOpacity * 100, 0, 100), TickFrequency = 5, IsSnapToTickEnabled = true, Margin = new(0, 8, 0, 8) };
         var opacityLabel = new TextBlock { Text = $"Độ đậm nền: {opacity.Value:0}% (100% = không trong suốt)", Foreground = Brushes.SlateGray };
@@ -75,7 +76,7 @@ public class SettingsWindow : Window
         {
             try
             {
-                var nextSettings = new UserSettings { ShowDropOverlay = showOverlay.IsChecked == true, DropOverlayOpacity = opacity.Value / 100, RunInBackground = background.IsChecked == true, StartWithWindows = startup.IsChecked == true, ArchiveFormat = format.SelectedIndex == 1 ? "rar" : "zip", CompressionTool = toolKeys[tool.SelectedIndex], HighCompression = strong.IsChecked == true };
+                var nextSettings = new UserSettings { CheckUpdatesOnStartup = autoUpdates.IsChecked == true, ShowDropOverlay = showOverlay.IsChecked == true, DropOverlayOpacity = opacity.Value / 100, RunInBackground = background.IsChecked == true, StartWithWindows = startup.IsChecked == true, ArchiveFormat = format.SelectedIndex == 1 ? "rar" : "zip", CompressionTool = toolKeys[tool.SelectedIndex], HighCompression = strong.IsChecked == true };
                 if (nextSettings.ArchiveFormat == "rar" && (!installed.CanCreateRar || nextSettings.CompressionTool is "7zip" or "builtin")) throw new InvalidOperationException("RAR cần WinRAR đã cài và công cụ Tự động hoặc WinRAR. Chọn ZIP nếu muốn dùng công cụ khác.");
                 var previousConfig = state.Config; var previousSettings = state.Settings; var previousAccounts = state.Accounts.ToList(); var previousSelected = state.SelectedAccountId;
                 var previousRevision = state.Cloud.LastAppliedRevision;
@@ -133,6 +134,14 @@ public class SettingsWindow : Window
         tabs.Items.Add(new TabItem { Header = "Giao diện & hệ thống", Content = new ScrollViewer { Content = general, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
         tabs.Items.Add(new TabItem { Header = "Nén thư mục", Content = new ScrollViewer { Content = compression, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
         tabs.Items.Add(new TabItem { Header = "Tài khoản Google", Content = new ScrollViewer { Content = stack, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+        var updates = new StackPanel { Margin = new(24) };
+        updates.Children.Add(new TextBlock { Text = "Cập nhật phần mềm", FontSize = 24, FontWeight = FontWeights.SemiBold });
+        updates.Children.Add(new TextBlock { Text = "Đang dùng DriveLink " + AppBrand.Version, Margin = new(0, 16, 0, 0) });
+        updates.Children.Add(autoUpdates);
+        var checkUpdates = new Button { Content = "Kiểm tra và cập nhật…", IsEnabled = openUpdates is not null };
+        checkUpdates.Click += (_, _) => openUpdates?.Invoke(this); updates.Children.Add(checkUpdates);
+        updates.Children.Add(new TextBlock { Text = "App thông báo khi có bản mới và chỉ tải/cài khi bạn chọn cập nhật. Trước khi khởi động lại, app chờ các lượt gửi/nhận hoàn tất. Tài khoản và các cài đặt đã lưu được giữ nguyên. Tắt kiểm tra tự động vẫn có thể kiểm tra thủ công.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new(0, 18, 0, 0) });
+        tabs.Items.Add(new TabItem { Header = "Cập nhật", Content = new ScrollViewer { Content = updates, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
         var content = new Grid { Margin = new(12) }; content.RowDefinitions.Add(new RowDefinition()); content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         content.Children.Add(tabs); Grid.SetRow(save, 1); save.Margin = new(12, 12, 12, 4); content.Children.Add(save); Content = content;
     }

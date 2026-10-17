@@ -23,6 +23,7 @@ $sourceNames += @('scripts\Set-CloudDefaults.ps1')
 $sourceNames += @('CLOUD-OAUTH.md')
 $sourceNames += @('AdminSignInWindow.cs')
 $sourceNames += @('global.json','GITHUB-RELEASES.md','scripts\Publish-Portable.ps1','.github\workflows\release.yml','.gitignore')
+$sourceNames += @('UpdateWindow.cs','tests\UpdateChecks.cs','.config\dotnet-tools.json','scripts\Build-UpdateRelease.ps1','RELEASE-NOTES.md')
 Add-Type -AssemblyName System.IO.Compression
 $archivePath = Join-Path $releasePath "source-v$Version.zip"
 $archive = [System.IO.Compression.ZipFile]::Open($archivePath, [System.IO.Compression.ZipArchiveMode]::Create)

@@ -8,13 +8,19 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>DriveLink</AssemblyName>
     <RootNamespace>DriveLink</RootNamespace>
-    <Version>0.7.2</Version>
+    <Version>0.8.0</Version>
+    <StartupObject>DriveLink.App</StartupObject>
     <Authors>Quang Huy</Authors>
     <Product>DriveLink — Quang Huy</Product>
     <ApplicationIcon>Assets\DriveLink.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup><Compile Remove="tests\**" /><Page Remove="tests\**" /></ItemGroup>
   <ItemGroup><Using Remove="System.Windows.Forms"/><Using Remove="System.Drawing"/></ItemGroup>
+  <ItemGroup>
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
+  </ItemGroup>
   <ItemGroup>
     <Content Include="supabase\**\*" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="Assets\DriveLink.png" LogicalName="DriveLink.BrandIcon" />

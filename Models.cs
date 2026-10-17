@@ -45,6 +45,7 @@ public sealed class CloudRevision
 }
 public sealed class UserSettings
 {
+    public bool CheckUpdatesOnStartup { get; set; } = true;
     public bool ShowDropOverlay { get; set; } = true;
     public double DropOverlayOpacity { get; set; } = 0.65;
     public string ArchiveFormat { get; set; } = "zip";

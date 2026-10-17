@@ -11,6 +11,11 @@ using System.Windows.Threading;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Security.Cryptography;
+if (args.Length == 2 && args[0] == "--update-feed")
+{
+    await UpdateChecks.VerifyPackage(args[1]);
+    return;
+}
 
 int passed = 0;
 void Check(bool condition, string message) { if (!condition) throw new Exception(message); passed++; Console.WriteLine("PASS " + message); }
@@ -261,6 +266,7 @@ try
     try { await ShellFileNavigator.OpenContainingFolderAsync(Path.Combine(root, "nonexistent.txt")); throw new Exception("Expected missing file"); } catch (FileNotFoundException) { Check(true, "Folder navigation detects missing files off the UI thread"); }
     var uiDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
     await CloudChecks.Run(Check, store);
+    await UpdateChecks.Run(Check, store);
     var uiThread = new Thread(() =>
     {
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
@@ -279,7 +285,15 @@ try
                 var startupBefore = StartupRegistration.IsEnabled();
                 var options = new SettingsWindow(new SavedState(), store); options.Show();
                 var settingsGrid = (Grid)options.Content;
-                Check(settingsGrid.Children.OfType<TabControl>().Single().Items.Count == 3, "Settings separates interface/system, folder compression and Google accounts");
+                Check(settingsGrid.Children.OfType<TabControl>().Single().Items.Count == 4, "Settings includes interface/system, compression, accounts and updates");
+                var updateFlow = new AppUpdateFlow(new UpdateFixture());
+                await updateFlow.CheckAsync(CancellationToken.None);
+                var updates = new UpdateWindow(updateFlow, () => false, () => { }) { WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000, Top = -10000, ShowInTaskbar = false };
+                updates.Show(); updates.UpdateLayout();
+                var updatePanel = (StackPanel)((ScrollViewer)updates.Content).Content;
+                Check(updatePanel.Children.OfType<TextBlock>().Any(x => x.Text.Contains("0.9.0")), "Update window clearly displays current and available versions");
+                Check(updatePanel.Children.OfType<Button>().Any(x => (string)x.Content == "Tải và cập nhật" && x.IsEnabled), "Update action is available after a release is found");
+                updates.Close();
                 options.Close();
                 var cloudWindow = new CloudConfigWindow(new SavedState(), store, (_, _) => throw new Exception("Opening cloud must not apply configuration"), autoLoad: false);
                 cloudWindow.Show();

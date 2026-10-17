@@ -40,9 +40,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Application checks failed.' }
       - name: Archive source and framework build
         run: ./scripts/Build-Release.ps1
-      - name: Build portable Windows x64 package
-        run: ./scripts/Publish-Portable.ps1
-      - name: Publish private repository release
+      - name: Build installer and update feed
+        run: ./scripts/Build-UpdateRelease.ps1
+      - name: Verify real update package and corruption rejection
+        run: |
+          dotnet run --project tests/DriveLink.Checks.csproj -c Release -- --update-feed "artifacts/updates-v${{ steps.version.outputs.value }}"
+          if ($LASTEXITCODE -ne 0) { throw 'Update package checks failed.' }
+      - name: Publish public repository release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -53,18 +57,9 @@ jobs:
           $tag = "v$version"
           gh release view $tag --repo $env:GH_REPO *> $null
           if ($LASTEXITCODE -eq 0) { throw 'Release already exists; bump the version instead of overwriting it.' }
-          $notes = @"
-          DriveLink — Quang Huy · v$version
-
-          Tải DriveLink-v$version-win-x64.zip, giải nén toàn bộ và mở DriveLink.exe.
-          Bản Windows 64-bit có sẵn .NET, không cần cài runtime riêng.
-          Cloud lấy OAuth có kết nối mặc định; Ctrl+Shift+A mở xác thực quản trị.
-          Xem CLOUD-OAUTH.md trong gói để biết thiết lập và nâng cấp Cloud.
-
-          Bản phát hành thuộc repository Private: chỉ tài khoản GitHub có quyền truy cập tải được.
-          Kèm SHA-256 và mã nguồn. Chưa ký mã Windows; Windows có thể hiển thị cảnh báo nhà phát hành.
-          "@
+          $notes = Get-Content RELEASE-NOTES.md -Raw
           $notesPath = Join-Path $env:RUNNER_TEMP 'drivelink-release-notes.md'
           $notes | Set-Content -LiteralPath $notesPath -Encoding utf8
-          gh release create $tag "artifacts/DriveLink-v$version-win-x64.zip" "artifacts/DriveLink-v$version-win-x64.zip.sha256" "versions/v$version/source-v$version.zip" --repo $env:GH_REPO --target $env:RELEASE_COMMIT --title "DriveLink v$version — Quang Huy" --notes-file $notesPath
+          gh release create $tag (Get-ChildItem "artifacts/updates-v$version" -File | ForEach-Object FullName) "versions/v$version/source-v$version.zip" --repo $env:GH_REPO --target $env:RELEASE_COMMIT --title "DriveLink v$version — Quang Huy" --notes-file $notesPath
           if ($LASTEXITCODE -ne 0) { throw 'Release publishing failed.' }
+

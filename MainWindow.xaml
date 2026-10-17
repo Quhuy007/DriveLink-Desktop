@@ -17,6 +17,7 @@
     <StackPanel Grid.Row="3">
      <Border Background="#F5F7FC" CornerRadius="10" Padding="12" Margin="0,0,0,14"><TextBlock Text="File nằm trên Google Drive.&#10;Mỗi máy có thể dùng một&#10;tài khoản Google khác nhau." FontSize="12" Foreground="{StaticResource Muted}" LineHeight="20"/></Border>
      <Button Content="⚙    Cài đặt" Click="Settings_Click"/>
+     <Button Content="⇩    Kiểm tra cập nhật" Click="Updates_Click" Margin="0,8,0,0"/>
      <Button x:Name="DemoButton" Content="Xem thử giao diện" BorderThickness="0" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,8,0,0" Click="Demo_Click"/>
     </StackPanel>
    </Grid>
@@ -24,9 +25,13 @@
   <Grid Grid.Column="1" Margin="32,24,32,22">
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <Grid Margin="0,0,0,24"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="280"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <StackPanel><TextBlock Text="KHÔNG GIAN LÀM VIỆC" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource Muted}"/><TextBlock Text="Mọi file, một nơi." FontSize="25" FontWeight="SemiBold" Margin="0,4,0,0"/></StackPanel>
     <ComboBox x:Name="AccountsBox" Grid.Column="1" Margin="16,6,12,6" SelectionChanged="Account_Changed" ToolTip="Tài khoản đang sử dụng"/>
     <Button Grid.Column="2" Content="＋ Tài khoản" Click="Connect_Click" VerticalAlignment="Center"/>
+    <Border x:Name="UpdateNotice" Grid.Row="1" Grid.ColumnSpan="3" Background="#E6EEFF" BorderBrush="#3865F3" BorderThickness="1" CornerRadius="10" Padding="14,10" Margin="0,14,0,0" Visibility="Collapsed">
+     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="UpdateNoticeText" TextWrapping="Wrap" Foreground="#17398B" FontWeight="SemiBold" VerticalAlignment="Center"/><Button Grid.Column="1" Content="Xem và cập nhật" Click="Updates_Click" Style="{StaticResource Primary}" Margin="12,0,0,0"/></Grid>
+    </Border>
    </Grid>
    <Border Grid.Row="1" Background="#172B50" CornerRadius="16" Padding="24" Margin="0,0,0,20">
     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

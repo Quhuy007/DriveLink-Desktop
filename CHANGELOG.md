@@ -1,3 +1,7 @@
+# v0.8.0
+
+Kiểm tra và cài cập nhật từ GitHub Releases công khai bằng Velopack. Thông báo bản mới, xem thay đổi, tiến độ/hủy tải, chờ truyền file hoàn tất và giữ dữ liệu khi nâng cấp. Bộ cài Setup và Portable có sẵn .NET; tự động tạo nguồn cập nhật cho các phiên bản sau.
+
 # Phiên bản DriveLink — Quang Huy
 
 ## 0.7.2
@@ -63,3 +67,4 @@
 Bản trước lần đổi nhận diện này, được lưu từ bản chạy đã có: kéo thả toàn cửa sổ, menu sao chép link, ghi nhớ file cục bộ, gửi/nhận đồng thời và tốc độ truyền, trang callback đăng nhập.
 
 Các bản trước 0.2.0 chưa được lưu thành bộ phiên bản riêng nên không thể phục hồi đầy đủ từ dự án hiện tại.
+
