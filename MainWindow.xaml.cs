@@ -8,12 +8,14 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Documents;
 using DriveLink.Services;
 
 namespace DriveLink;
 public partial class MainWindow : Window
 {
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromMinutes(10) };
+    private readonly bool preview;
     private readonly SecureStore store;
     private readonly SavedState state;
     private readonly GoogleAuth auth;
@@ -21,7 +23,7 @@ public partial class MainWindow : Window
     private readonly LocalFileHistory history;
     private readonly FolderCompressor compressor = new();
     private readonly TrayController tray;
-    private readonly AppUpdateFlow appUpdates = new(new VelopackUpdateBackend());
+    private readonly AppUpdateFlow appUpdates;
     private readonly DispatcherTimer updateTimer = new() { Interval = TimeSpan.FromHours(6) };
     private UpdateWindow? updateWindow;
     private bool installingUpdate;
@@ -44,15 +46,25 @@ public partial class MainWindow : Window
     private Space? CurrentSpace => SpacesList.SelectedItem as Space;
     private DriveItem? CurrentFile => FilesGrid.SelectedItem as DriveItem;
 
-    public MainWindow()
+    public MainWindow() : this(null, null, false) { }
+    public MainWindow(SavedState? initialState, SecureStore? localStore, bool preview, IAppUpdateBackend? updateBackend = null)
     {
+        this.preview = preview;
+        appUpdates = new(updateBackend ?? new VelopackUpdateBackend());
         InitializeComponent();
         var workArea = SystemParameters.WorkArea;
         MinWidth = Math.Min(MinWidth, workArea.Width); MinHeight = Math.Min(MinHeight, workArea.Height);
         Width = Math.Min(Width, workArea.Width); Height = Math.Min(Height, workArea.Height);
         FilesGrid.PreviewMouseRightButtonDown += FileRow_RightClick;
-        store = new SecureStore();
-        try { state = store.Load(); }
+        FilesGrid.PreviewKeyDown += (_, e) =>
+        {
+            if ((e.Key == Key.Apps || e.Key == Key.F10 && Keyboard.Modifiers == ModifierKeys.Shift) && CurrentFile is { } file)
+            {
+                var menu = BuildFileMenu(file); menu.PlacementTarget = FilesGrid; menu.IsOpen = true; e.Handled = true;
+            }
+        };
+        store = localStore ?? new SecureStore();
+        try { state = initialState ?? store.Load(); }
         catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or JsonException or IOException)
         {
             state = new();
@@ -82,6 +94,16 @@ public partial class MainWindow : Window
     }
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
+        if (preview)
+        {
+            demo = true; ApplyUserSettings();
+            var space = new Space { Id = "preview", Name = "[DriveLink] Làm việc" };
+            applying = true; SpacesList.ItemsSource = new[] { space }; SpacesList.SelectedItem = space; applying = false;
+            SpaceTitle.Text = "Làm việc"; SpaceSubtitle.Text = "Thả file hoặc thư mục ở bất kỳ đâu · Tự làm mới mỗi 15 giây";
+            files = Enumerable.Range(1, 45).Select(i => new DriveItem { Id = "preview-" + i, Name = i % 3 == 0 ? $"Bản thiết kế không gian làm việc — phiên bản {i}.pdf" : $"Tài liệu chia sẻ {i:00}.zip", MimeType = "application/octet-stream", Size = i * 1728000, CreatedAt = DateTimeOffset.Now.AddMinutes(-i * 5), Owners = [new() { Email = i % 2 == 0 ? "maynhan@example.com" : "quanghuy.demo@example.com", Me = i % 2 == 1 }], Capabilities = new() { CanCopy = true, CanDownload = true, CanShare = true, CanRename = true, CanTrash = true, CanModifyEditorContentRestriction = true } }).ToList();
+            RenderUpdatedStatus(CurrentAccount?.Email ?? "maygui@example.com");
+            RenderFiles(); return;
+        }
         var area = SystemParameters.WorkArea;
         Left = Math.Clamp(Left, area.Left, Math.Max(area.Left, area.Right - ActualWidth));
         Top = Math.Clamp(Top, area.Top, Math.Max(area.Top, area.Bottom - ActualHeight));
@@ -93,6 +115,7 @@ public partial class MainWindow : Window
     }
     private void ApplyUserSettings()
     {
+        ApplyZoom();
         tray.Visible = state.Settings.RunInBackground;
         if (state.Settings.StartWithWindows && StartupRegistration.IsEnabled())
         {
@@ -144,11 +167,77 @@ public partial class MainWindow : Window
         AccountsBox.ItemsSource = null;
         AccountsBox.ItemsSource = state.Accounts;
         AccountsBox.SelectedItem = state.Accounts.FirstOrDefault(x => x.Id == state.SelectedAccountId) ?? state.Accounts.FirstOrDefault();
+        UpdateAccountMenu();
         applying = false;
+    }
+    private void UpdateAccountMenu()
+    {
+        var compact = (ActualWidth > 0 ? ActualWidth : Width) / Math.Max(.6, UiScaleTransform.ScaleX) - 238 < 640;
+        AccountMenuButton.Content = CurrentAccount is { } account ? compact ? "Tài khoản ▾" : DisplayPrivacy.MaskEmail(account.Email) + "  ▾" : "＋ Thêm tài khoản";
+        AccountMenuButton.ToolTip = CurrentAccount is { } current ? DisplayPrivacy.MaskEmail(current.Email) : "Thêm tài khoản Google";
+    }
+    private void AccountsMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (state.Accounts.Count == 0) { Connect_Click(sender, e); return; }
+        var menu = new ContextMenu { LayoutTransform = new ScaleTransform(UiPresentation.Scale, UiPresentation.Scale) };
+        foreach (var account in state.Accounts)
+        {
+            var entry = new MenuItem { Header = DisplayPrivacy.MaskEmail(account.Email), IsCheckable = true, IsChecked = CurrentAccount?.Id == account.Id };
+            entry.Click += (_, _) =>
+            {
+                if (busy || refreshing || HasTransfers) { StatusLabel.Text = "Chờ truyền file/thao tác hiện tại trước khi đổi tài khoản."; return; }
+                AccountsBox.SelectedItem = account;
+            };
+            menu.Items.Add(entry);
+        }
+        menu.Items.Add(new Separator());
+        var add = new MenuItem { Header = "＋ Thêm tài khoản Google" }; add.Click += Connect_Click; menu.Items.Add(add);
+        AccountMenuButton.ContextMenu = menu; menu.PlacementTarget = AccountMenuButton; menu.IsOpen = true;
+    }
+    private void ApplyZoom()
+    {
+        var area = SystemParameters.WorkArea;
+        var zoom = DisplayPrivacy.ResolveScale(state.Settings.UiScale, area.Width, area.Height);
+        UiScaleTransform.ScaleX = zoom; UiScaleTransform.ScaleY = zoom; UiPresentation.Scale = zoom;
+        ZoomLabel.Content = $"{zoom:P0}" + (state.Settings.UiScale == 0 ? " · Tự động" : "");
+        var compact = (ActualWidth > 0 ? ActualWidth : Width) / zoom - 238 < 640;
+        FolderUploadButton.Content = compact ? "▱ Thư mục" : "Chọn thư mục";
+        FileUploadButton.Content = compact ? "＋ File" : "＋ Chọn file";
+        MembersButton.Content = compact ? "👥" : "Thành viên";
+        SpaceSubtitle.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        OpenDriveButton.Visibility = DownloadFileButton.Visibility = SelectionLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        MinHeight = Math.Min(area.Height, zoom > 1.2 ? 580 : 480);
+        UpdateAccountMenu();
+    }
+    private void Window_SizeChanged(object s, SizeChangedEventArgs e) { if (IsLoaded) ApplyZoom(); }
+    private void ChangeZoom(double? step)
+    {
+        var previous = state.Settings.UiScale;
+        state.Settings.UiScale = step is null ? 0 : Math.Clamp(Math.Round((UiScaleTransform.ScaleX + step.Value) * 100) / 100, .6, 1.5);
+        try { store.Save(state); ApplyZoom(); }
+        catch (Exception ex) { state.Settings.UiScale = previous; ShowError(ex); }
+    }
+    private void ZoomOut_Click(object s, RoutedEventArgs e) => ChangeZoom(-.05);
+    private void ZoomIn_Click(object s, RoutedEventArgs e) => ChangeZoom(.05);
+    private void ZoomReset_Click(object s, RoutedEventArgs e) => ChangeZoom(null);
+    private void Zoom_MouseWheel(object s, MouseWheelEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Control) return;
+        ChangeZoom(e.Delta > 0 ? .05 : -.05); e.Handled = true;
+    }
+    private void Zoom_KeyDown(object s, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Control) return;
+        if (e.Key is Key.Add or Key.OemPlus) ChangeZoom(.05);
+        else if (e.Key is Key.Subtract or Key.OemMinus) ChangeZoom(-.05);
+        else if (e.Key is Key.D0 or Key.NumPad0) ChangeZoom(null);
+        else return;
+        e.Handled = true;
     }
     private async void Account_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (applying || !IsLoaded || demo) return;
+        UpdateAccountMenu();
         state.SelectedAccountId = CurrentAccount?.Id;
         try { store.Save(state); }
         catch (Exception ex) { ShowError(ex); }
@@ -227,10 +316,10 @@ public partial class MainWindow : Window
             if (CurrentSpace is { } space)
             {
                 SpaceTitle.Text = space.ToString();
-                SpaceSubtitle.Text = "Không gian riêng tư • Tự cập nhật file mỗi 15 giây khi ứng dụng đang mở";
+                SpaceSubtitle.Text = "Thả file hoặc thư mục vào bất kỳ đâu · Tự làm mới mỗi 15 giây";
                 var result = await drive.ListFilesAsync(account, space.Id, lifetime.Token);
                 files = result.OrderByDescending(x => x.CreatedAt).ToList();
-                StatusLabel.Text = $"Đã cập nhật lúc {DateTime.Now:HH:mm:ss} · {account.Email}";
+                RenderUpdatedStatus(account.Email);
             }
             else
             {
@@ -258,7 +347,7 @@ public partial class MainWindow : Window
         if (filter == 1) visible = visible.Where(x => x.Owners.Any(o => o.Me));
         if (filter == 2) visible = visible.Where(x => !x.Owners.Any(o => o.Me));
         var search = SearchBox.Text.Trim();
-        if (search.Length > 0) visible = visible.Where(x => x.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || x.OwnerLabel.Contains(search, StringComparison.OrdinalIgnoreCase));
+        if (search.Length > 0) visible = visible.Where(x => x.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || x.OwnerEmail.Contains(search, StringComparison.OrdinalIgnoreCase));
         var rows = visible.ToList();
         FilesGrid.ItemsSource = rows;
         FilesGrid.SelectedItem = rows.FirstOrDefault(x => x.Id == selectedId);
@@ -266,6 +355,12 @@ public partial class MainWindow : Window
         EmptyPanel.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (search.Length > 0 || filter != 0) { EmptyTitle.Text = "Chưa có file phù hợp"; EmptyDescription.Text = "Thử từ khóa khác hoặc quay về File gần đây."; }
         else { EmptyTitle.Text = "Sẵn sàng cho file đầu tiên"; EmptyDescription.Text = CurrentSpace is null ? "Thêm tài khoản Google, tạo không gian và mời tài khoản trên máy còn lại để bắt đầu." : "Thả file vào bất kỳ đâu trong ứng dụng để gửi vào không gian đang chọn."; }
+    }
+    private void RenderUpdatedStatus(string email)
+    {
+        StatusLabel.Inlines.Clear(); StatusLabel.Inlines.Add(new Run("Đã cập nhật lúc "));
+        StatusLabel.Inlines.Add(new Run(DateTime.Now.ToString("HH:mm:ss")) { Foreground = (Brush)FindResource("Accent"), FontWeight = FontWeights.SemiBold });
+        StatusLabel.Inlines.Add(new Run(" | " + DisplayPrivacy.MaskEmail(email)));
     }
     private void SetFilter(int value, string title)
     {
@@ -318,7 +413,7 @@ public partial class MainWindow : Window
             StatusLabel.Text = "Đang chờ bạn đăng nhập Google trong trình duyệt…";
             var account = await auth.ConnectAsync(operation.Token);
             ReloadAccounts();
-            StatusLabel.Text = "Đã kết nối Google: " + account.Email;
+            StatusLabel.Text = "Đã kết nối Google: " + DisplayPrivacy.MaskEmail(account.Email);
             await login.CompleteAsync(true, "Đã liên kết " + account.Email + ". Bạn có thể gửi và nhận file.");
         }
         catch (OperationCanceledException)
@@ -354,7 +449,7 @@ public partial class MainWindow : Window
             element = element is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(element) : LogicalTreeHelper.GetParent(element);
         if (element is not ListBoxItem { DataContext: Space space } row) return;
         e.Handled = true;
-        var menu = new ContextMenu();
+        var menu = new ContextMenu { LayoutTransform = new ScaleTransform(UiPresentation.Scale, UiPresentation.Scale) };
         var pin = new MenuItem { Header = space.Pinned ? "Bỏ ghim" : "Ghim lên đầu" };
         pin.Click += (_, _) => EditSpacePreference(space, p => p.Pinned = !p.Pinned);
         menu.Items.Add(pin);
@@ -403,7 +498,7 @@ public partial class MainWindow : Window
     {
         if (!Ready() || busy || refreshing || HasTransfers) return;
         poll.Stop();
-        var dialog = new MembersWindow(drive, CurrentAccount!, CurrentSpace!) { Owner = this };
+        var dialog = new FileShareWindow(drive, CurrentAccount!, new DriveItem { Id = CurrentSpace!.Id, Name = CurrentSpace.DisplayName, MimeType = "application/vnd.google-apps.folder" }) { Owner = this };
         dialog.ShowDialog();
         await RefreshAsync(); poll.Start();
     }
@@ -549,13 +644,73 @@ public partial class MainWindow : Window
             element = element is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(element) : LogicalTreeHelper.GetParent(element);
         if (element is not DataGridRow { Item: DriveItem item } row) return;
         FilesGrid.SelectedItem = item;
-        var menu = new ContextMenu();
-        var copy = new MenuItem { Header = "Sao chép link mở trên web", CommandParameter = item };
-        var local = new MenuItem { Header = "Mở thư mục trên máy", CommandParameter = item };
-        copy.Click += CopyFileLink_Click;
-        local.Click += OpenLocalFolder_Click;
-        menu.Items.Add(copy); menu.Items.Add(local);
-        row.ContextMenu = menu;
+        row.ContextMenu = BuildFileMenu(item);
+    }
+    private ContextMenu BuildFileMenu(DriveItem item)
+    {
+        var menu = new ContextMenu { LayoutTransform = new ScaleTransform(UiPresentation.Scale, UiPresentation.Scale) };
+        MenuItem Add(string label, RoutedEventHandler handler, bool enabled = true)
+        {
+            var entry = new MenuItem { Header = label, IsEnabled = enabled, CommandParameter = item }; entry.Click += handler; menu.Items.Add(entry); return entry;
+        }
+        var available = !demo && !busy && !refreshing && !installingUpdate;
+        Add("Đổi tên", async (_, _) => await RenameFile(item), available && item.Capabilities.CanRename && !item.IsLocked);
+        Add("Tải xuống", (_, e) => { FilesGrid.SelectedItem = item; Download_Click(this, e); }, available && item.Capabilities.CanDownload);
+        Add("Tạo bản sao", async (_, _) => await CopyFile(item), available && item.Capabilities.CanCopy && item.MimeType != "application/vnd.google-apps.folder");
+        var share = new MenuItem { Header = "Chia sẻ" };
+        var shareDialog = new MenuItem { Header = "Chia sẻ…", IsEnabled = available };
+        shareDialog.Click += (_, _) => ShareFile(item);
+        var link = new MenuItem { Header = "Sao chép liên kết", IsEnabled = !demo, CommandParameter = item }; link.Click += CopyFileLink_Click;
+        share.Items.Add(shareDialog); share.Items.Add(link); menu.Items.Add(share);
+        var info = new MenuItem { Header = "Thông tin" };
+        var details = new MenuItem { Header = "Thông tin chi tiết", IsEnabled = available }; details.Click += async (_, _) => await ShowFileDetails(item);
+        var locked = new MenuItem { Header = item.IsLocked ? "Mở khóa" : "Khóa", IsEnabled = available && (item.IsLocked ? item.Capabilities.CanRemoveContentRestriction || item.Capabilities.CanModifyContentRestriction : item.Capabilities.CanModifyEditorContentRestriction || item.Capabilities.CanModifyContentRestriction) };
+        locked.Click += async (_, _) => await ToggleFileLock(item);
+        info.Items.Add(details); info.Items.Add(locked); menu.Items.Add(info);
+        menu.Items.Add(new Separator());
+        Add("Chuyển vào thùng rác", async (_, _) => await TrashFile(item), available && item.Capabilities.CanTrash);
+        return menu;
+    }
+    private async Task RenameFile(DriveItem item)
+    {
+        if (!Ready() || CurrentAccount is not { } account) return;
+        var prompt = new PromptWindow("Đổi tên", "Nhập tên mới cho file trên Google Drive.", "Tên file", "Lưu", item.Name, 255) { Owner = this };
+        if (prompt.ShowDialog() != true || prompt.Value == item.Name) return;
+        await RunAsync(async ct => { await drive.RenameAsync(account, item.Id, prompt.Value, ct); StatusLabel.Text = "Đã đổi tên file."; });
+        await RefreshAsync();
+    }
+    private async Task CopyFile(DriveItem item)
+    {
+        if (!Ready() || CurrentAccount is not { } account || CurrentSpace is not { } space) return;
+        await RunAsync(async ct => { await drive.CopyAsync(account, item.Id, "Bản sao của " + item.Name, space.Id, ct); StatusLabel.Text = "Đã tạo bản sao trong không gian hiện tại."; });
+        await RefreshAsync();
+    }
+    private async Task TrashFile(DriveItem item)
+    {
+        if (!Ready() || CurrentAccount is not { } account) return;
+        if (MessageBox.Show(this, "Chuyển “" + item.Name + "” vào Thùng rác Google Drive? Có thể khôi phục trên Drive.", "Chuyển vào thùng rác", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        await RunAsync(async ct => { await drive.TrashFileAsync(account, item.Id, ct); StatusLabel.Text = "Đã chuyển file vào Thùng rác Drive."; });
+        await RefreshAsync();
+    }
+    private void ShareFile(DriveItem item)
+    {
+        if (!Ready() || busy || refreshing || CurrentAccount is not { } account) return;
+        poll.Stop();
+        try { new FileShareWindow(drive, account, item) { Owner = this }.ShowDialog(); }
+        finally { poll.Start(); _ = RefreshAsync(); }
+    }
+    private async Task ShowFileDetails(DriveItem item)
+    {
+        if (!Ready() || CurrentAccount is not { } account) return;
+        await RunAsync(async ct => { var fresh = await drive.GetFileAsync(account, item.Id, ct); new FileDetailsWindow(fresh) { Owner = this }.ShowDialog(); });
+    }
+    private async Task ToggleFileLock(DriveItem item)
+    {
+        if (!Ready() || CurrentAccount is not { } account) return;
+        var action = item.IsLocked ? "Mở khóa" : "Khóa";
+        if (MessageBox.Show(this, action + " chỉnh sửa cho “" + item.Name + "”?\nKhóa ngăn sửa nội dung, tên và nhận xét. Quyền xem/tải và chia sẻ không thay đổi. Người có quyền phù hợp có thể mở khóa lại.", action + " file", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        await RunAsync(async ct => { var fresh = await drive.GetFileAsync(account, item.Id, ct); if (fresh.IsLocked != item.IsLocked) throw new InvalidOperationException("Trạng thái khóa đã đổi trên Drive. Hãy làm mới danh sách."); await drive.SetLockedAsync(account, item.Id, !fresh.IsLocked, ct); StatusLabel.Text = "Đã " + action.ToLowerInvariant() + " file."; });
+        await RefreshAsync();
     }
     private async void OpenLocalFolder(DriveItem item)
     {
@@ -612,3 +767,9 @@ public partial class MainWindow : Window
         RenderFiles();
     }
 }
+
+
+
+
+
+

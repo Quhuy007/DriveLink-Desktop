@@ -4,7 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 namespace DriveLink.Services;
 
-public sealed class DriveService(HttpClient http, Func<Account, CancellationToken, Task<string>> getToken)
+public sealed partial class DriveService(HttpClient http, Func<Account, CancellationToken, Task<string>> getToken)
 {
     private const string Api = "https://www.googleapis.com/drive/v3/";
     private static string Q(string value) => value.Replace("\\", "\\\\").Replace("'", "\\'");
@@ -60,7 +60,7 @@ public sealed class DriveService(HttpClient http, Func<Account, CancellationToke
         await EnsureAsync(response, ct);
     }
     public Task<List<DriveItem>> ListFilesAsync(Account account, string folder, CancellationToken ct) => ListAsync<DriveItem>(account,
-        Api + "files?pageSize=100&orderBy=createdTime%20desc&fields=nextPageToken,files(id,name,mimeType,size,createdTime,webViewLink,owners(displayName,emailAddress,me))&q=" + Uri.EscapeDataString($"trashed = false and '{Q(folder)}' in parents"), "files", ct);
+        Api + $"files?pageSize=100&orderBy=createdTime%20desc&fields=nextPageToken,files({FileFields})&q=" + Uri.EscapeDataString($"trashed = false and '{Q(folder)}' in parents"), "files", ct);
     public async Task<Space> CreateSpaceAsync(Account account, string name, CancellationToken ct)
     {
         using var request = await RequestAsync(account, HttpMethod.Post, Api + "files?fields=id,name", ct);
@@ -70,7 +70,7 @@ public sealed class DriveService(HttpClient http, Func<Account, CancellationToke
         return (await response.Content.ReadFromJsonAsync<Space>(ct))!;
     }
     public Task<List<DrivePermission>> ListPermissionsAsync(Account account, string file, CancellationToken ct) => ListAsync<DrivePermission>(account,
-        Api + $"files/{Uri.EscapeDataString(file)}/permissions?pageSize=100&fields=nextPageToken,permissions(id,emailAddress,role,type)", "permissions", ct);
+        Api + $"files/{Uri.EscapeDataString(file)}/permissions?supportsAllDrives=true&pageSize=100&fields=nextPageToken,permissions(id,emailAddress,displayName,domain,role,type,permissionDetails(inherited))", "permissions", ct);
     public async Task InviteAsync(Account account, string folder, string email, string role, CancellationToken ct)
     {
         if (role is not ("reader" or "writer")) throw new ArgumentException("Quyền không hợp lệ.");
@@ -81,7 +81,7 @@ public sealed class DriveService(HttpClient http, Func<Account, CancellationToke
     }
     public async Task RemovePermissionAsync(Account account, string folder, string permission, CancellationToken ct)
     {
-        using var request = await RequestAsync(account, HttpMethod.Delete, Api + $"files/{Uri.EscapeDataString(folder)}/permissions/{Uri.EscapeDataString(permission)}", ct);
+        using var request = await RequestAsync(account, HttpMethod.Delete, Api + $"files/{Uri.EscapeDataString(folder)}/permissions/{Uri.EscapeDataString(permission)}?supportsAllDrives=true", ct);
         using var response = await http.SendAsync(request, ct);
         await EnsureAsync(response, ct);
     }

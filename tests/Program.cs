@@ -266,6 +266,7 @@ try
     try { await ShellFileNavigator.OpenContainingFolderAsync(Path.Combine(root, "nonexistent.txt")); throw new Exception("Expected missing file"); } catch (FileNotFoundException) { Check(true, "Folder navigation detects missing files off the UI thread"); }
     var uiDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
     await CloudChecks.Run(Check, store);
+    await FileActionChecks.Run(Check);
     await UpdateChecks.Run(Check, store);
     var uiThread = new Thread(() =>
     {
@@ -282,6 +283,7 @@ try
             try
             {
                 Check(AppBrand.Icon.PixelWidth > 0, "Application icon is embedded and readable");
+                await LayoutChecks.Run(Check, store, root);
                 var startupBefore = StartupRegistration.IsEnabled();
                 var options = new SettingsWindow(new SavedState(), store); options.Show();
                 var settingsGrid = (Grid)options.Content;

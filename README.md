@@ -2,7 +2,7 @@
 
 Repository công khai: [Quhuy007/DriveLink-Desktop](https://github.com/Quhuy007/DriveLink-Desktop). Tải Setup Windows x64 từ Releases không cần đăng nhập GitHub. Cài một lần để bật cập nhật trong app; bộ cài có sẵn .NET. Xem [GITHUB-RELEASES.md](GITHUB-RELEASES.md) về tải trên máy mới và phát hành tự động bằng tag/Actions.
 
-Ứng dụng của **Quang Huy**. Bản hiện tại: **0.8.0**. Các bản chạy được giữ riêng trong `versions`, dùng chung kết nối tài khoản đã lưu trên máy.
+Ứng dụng của **Quang Huy**. Bản hiện tại: **1.0.0**. Các bản chạy được giữ riêng trong `versions`, dùng chung kết nối tài khoản đã lưu trên máy.
 
 **Cài đặt → Tài khoản Google → Cloud lấy OAuth**: kết nối mặc định có sẵn. Nhập mật khẩu OAuth rồi tải/mở khóa và Lưu cài đặt, không đăng nhập reader. Ctrl+Shift+A mở hộp mật khẩu admin, xác thực đúng mới mở quản trị/lịch sử. Thiếu/sai mật khẩu có khung đỏ và thông báo nổi bật. Xem [CLOUD-OAUTH.md](CLOUD-OAUTH.md) để nâng cấp Cloud hiện có. Chưa chạy nâng cấp SQL hoặc kiểm tra đăng nhập trên project thật trong quá trình phát triển; kiểm tra app sử dụng phản hồi mô phỏng. Google token chỉ lưu trên từng máy.
 
@@ -16,8 +16,21 @@ Repository công khai: [Quhuy007/DriveLink-Desktop](https://github.com/Quhuy007/
 - `versions/v0.7.1/DriveLink.exe`: sửa lỗi đọc phản hồi đăng nhập, chọn email admin và SQL giữ lịch sử khi xóa tài khoản cũ.
 - `versions/v0.7.2/DriveLink.exe`: chỉ hỏi mật khẩu quản trị, dùng admin mặc định còn lại.
 - `versions/v0.8.0/DriveLink.exe`: kiểm tra cập nhật, tải/cài có tiến độ, chờ gửi/nhận và bộ cài Velopack. Dùng Setup từ Release để bật cập nhật trong app.
+- `versions/v1.0.0/DriveLink.exe`: giao diện gọn, thu phóng, menu thao tác file và chia sẻ mới. Bản đã cài 0.8.0 có thể cập nhật trong app.
 - Mỗi bản có ZIP mã nguồn để phục hồi. Bản mới có `release.json` ghi phiên bản và SHA-256.
-- Tạo phiên bản tiếp theo: chạy `scripts/Build-Release.ps1 -Version 0.8.1`. Script từ chối ghi đè phiên bản đã tồn tại. Các bản framework-dependent cần .NET Desktop Runtime 10 và toàn bộ tệp trong thư mục bản đó.
+- Tạo phiên bản tiếp theo: chạy `scripts/Build-Release.ps1 -Version 1.0.1`. Script từ chối ghi đè phiên bản đã tồn tại. Các bản framework-dependent cần .NET Desktop Runtime 10 và toàn bộ tệp trong thư mục bản đó.
+
+## Giao diện 1.0.0
+
+Danh sách file được ưu tiên trên màn hình nhỏ. Thu phóng bằng nút thanh bên, Ctrl +/− hoặc Ctrl + cuộn; Ctrl + 0 tự điều chỉnh. Tỷ lệ, font và kích thước nút cùng thay đổi. Các cửa sổ được giới hạn theo vùng màn hình. Ở tỷ lệ lớn, thanh công cụ được rút gọn; dùng menu chuột phải để tải xuống hoặc mở trên Drive khi các nút dưới bị ẩn.
+
+Email được che trong giao diện bằng tối đa 6 ký tự đầu + 6 dấu * + tên miền. Việc tìm kiếm và gửi lời mời vẫn dùng địa chỉ email thật. Che hiển thị không thay đổi danh tính hay quyền truy cập.
+
+Chuột phải vào file: đổi tên, tải xuống, tạo bản sao vào không gian hiện tại, chia sẻ, thông tin, Thùng rác. Có thể dùng Shift+F10. Thông tin chỉ có chi tiết và khóa/mở khóa. Khóa là content restriction của Drive: ngăn sửa tên/nội dung/nhận xét, không chặn xem/tải hay chia sẻ; tài khoản có quyền phù hợp có thể mở khóa lại.
+
+Cửa sổ chia sẻ dùng chung cho file và Thành viên không gian. Hỗ trợ người/nhóm, xem/nhận xét/chỉnh sửa, thu hồi quyền trực tiếp, liên kết và tên miền Workspace. Quyền kế thừa cần đổi ở nơi cấp quyền gốc. Chuyển sở hữu, thời hạn và thiết lập tổ chức dùng nút mở các tùy chọn khác trên Drive. Kiểm tra API dùng dữ liệu mô phỏng, không gửi lời mời hoặc thay đổi file thật trong quá trình kiểm thử.
+
+Tài liệu: [Chia sẻ trên Drive](https://developers.google.com/workspace/drive/api/guides/manage-sharing), [Khóa chỉnh sửa](https://developers.google.com/workspace/drive/api/guides/content-restrictions).
 
 ## Không gian, thư mục và tùy chọn mới
 
@@ -122,4 +135,6 @@ Testing với quyền Drive thường làm refresh token hết hạn sau 7 ngày
 `MainWindow.xaml`: giao diện. `MainWindow.xaml.cs`: tương tác, bộ lọc và cập nhật định kỳ. `Dialogs.cs`: tài khoản, cấu hình và thành viên. `Services/GoogleAuth.cs`: OAuth. `Services/SecureStore.cs`: lưu mã hóa. `Services/DriveService.cs`: API, phân trang và truyền file. `tests`: kiểm tra bằng HTTP giả lập, không gọi Google thật.
 
 `Services/OAuthCallbackServer.cs`: trang kết quả đăng nhập. `Services/TransferLane.cs`: hàng đợi từng chiều. `Services/TransferMeter.cs`: đo tốc độ truyền. `Services/LocalFileHistory.cs`: đường dẫn file trên máy. Khi truyền file, ứng dụng giữ tài khoản và không gian hiện tại để tránh gửi nhầm; vẫn dùng được tìm kiếm, chọn file và thêm lượt gửi/nhận.
+
+
 

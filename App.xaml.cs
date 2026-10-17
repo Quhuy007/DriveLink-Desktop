@@ -24,6 +24,7 @@ public partial class App : Application
         }
         wake = new EventWaitHandle(false, EventResetMode.AutoReset, key + ".Show");
         wait = ThreadPool.RegisterWaitForSingleObject(wake, (_, _) => Dispatcher.BeginInvoke(() => (MainWindow as MainWindow)?.ShowFromTray()), null, Timeout.Infinite, false);
+        EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent, new RoutedEventHandler((sender, _) => { if (sender is Window window) UiPresentation.Fit(window); }));
         base.OnStartup(e);
     }
     protected override void OnExit(ExitEventArgs e)

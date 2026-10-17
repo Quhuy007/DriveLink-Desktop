@@ -11,15 +11,15 @@ public class PromptWindow : Window
 {
     private readonly TextBox input = new() { Margin = new(0, 16, 0, 16) };
     public string Value => input.Text.Trim();
-    public PromptWindow(string title, string description, string hint)
+    public PromptWindow(string title, string description, string hint, string buttonText = "Tạo không gian", string initial = "", int maxLength = 100)
     {
         Title = title; Width = 480; SizeToContent = SizeToContent.Height; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var stack = new StackPanel { Margin = new(24) };
         stack.Children.Add(new TextBlock { Text = title, FontSize = 22, FontWeight = FontWeights.SemiBold });
         stack.Children.Add(new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap, Margin = new(0, 10, 0, 0) });
-        input.ToolTip = hint; stack.Children.Add(input);
-        var button = new Button { Content = "Tạo không gian", IsDefault = true, Style = (Style)FindResource("Primary") };
-        button.Click += (_, _) => { if (Value.Length is > 0 and <= 100) DialogResult = true; else MessageBox.Show(this, "Tên cần từ 1 đến 100 ký tự."); };
+        input.ToolTip = hint; input.Text = initial; stack.Children.Add(input);
+        var button = new Button { Content = buttonText, IsDefault = true, Style = (Style)FindResource("Primary") };
+        button.Click += (_, _) => { if (Value.Length > 0 && Value.Length <= maxLength) DialogResult = true; else MessageBox.Show(this, $"Tên cần từ 1 đến {maxLength} ký tự."); };
         stack.Children.Add(button); Content = stack; Loaded += (_, _) => input.Focus();
     }
     public static string? Ask(Window owner, string title, string description, string hint)
@@ -34,6 +34,11 @@ public class SettingsWindow : Window
     {
         Title = "Cài đặt — DriveLink · Quang Huy"; Width = 680; Height = 760; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var installed = CompressionTools.Detect();
+        var automaticScale = new CheckBox { Content = "Tự chọn tỷ lệ theo màn hình", IsChecked = state.Settings.UiScale == 0, Margin = new(0, 12, 0, 8) };
+        var uiScale = new Slider { Minimum = 60, Maximum = 150, TickFrequency = 5, IsSnapToTickEnabled = true, Value = DisplayPrivacy.ResolveScale(state.Settings.UiScale, SystemParameters.WorkArea.Width, SystemParameters.WorkArea.Height) * 100, IsEnabled = state.Settings.UiScale != 0 };
+        var scaleLabel = new TextBlock { Text = $"Thu phóng giao diện: {uiScale.Value:0}%", Margin = new(0, 8, 0, 8) };
+        automaticScale.Checked += (_, _) => uiScale.IsEnabled = false; automaticScale.Unchecked += (_, _) => uiScale.IsEnabled = true;
+        uiScale.ValueChanged += (_, _) => scaleLabel.Text = $"Thu phóng giao diện: {uiScale.Value:0}%";
         var autoUpdates = new CheckBox { Content = "Tự kiểm tra phiên bản mới khi mở app và mỗi 6 giờ", IsChecked = state.Settings.CheckUpdatesOnStartup, Margin = new(0, 18, 0, 16) };
         var showOverlay = new CheckBox { Content = "Hiển thị lớp thông báo khi kéo file vào app", IsChecked = state.Settings.ShowDropOverlay, Margin = new(0, 12, 0, 12) };
         var opacity = new Slider { Minimum = 0, Maximum = 100, Value = Math.Clamp(state.Settings.DropOverlayOpacity * 100, 0, 100), TickFrequency = 5, IsSnapToTickEnabled = true, Margin = new(0, 8, 0, 8) };
@@ -76,7 +81,7 @@ public class SettingsWindow : Window
         {
             try
             {
-                var nextSettings = new UserSettings { CheckUpdatesOnStartup = autoUpdates.IsChecked == true, ShowDropOverlay = showOverlay.IsChecked == true, DropOverlayOpacity = opacity.Value / 100, RunInBackground = background.IsChecked == true, StartWithWindows = startup.IsChecked == true, ArchiveFormat = format.SelectedIndex == 1 ? "rar" : "zip", CompressionTool = toolKeys[tool.SelectedIndex], HighCompression = strong.IsChecked == true };
+                var nextSettings = new UserSettings { UiScale = automaticScale.IsChecked == true ? 0 : uiScale.Value / 100, CheckUpdatesOnStartup = autoUpdates.IsChecked == true, ShowDropOverlay = showOverlay.IsChecked == true, DropOverlayOpacity = opacity.Value / 100, RunInBackground = background.IsChecked == true, StartWithWindows = startup.IsChecked == true, ArchiveFormat = format.SelectedIndex == 1 ? "rar" : "zip", CompressionTool = toolKeys[tool.SelectedIndex], HighCompression = strong.IsChecked == true };
                 if (nextSettings.ArchiveFormat == "rar" && (!installed.CanCreateRar || nextSettings.CompressionTool is "7zip" or "builtin")) throw new InvalidOperationException("RAR cần WinRAR đã cài và công cụ Tự động hoặc WinRAR. Chọn ZIP nếu muốn dùng công cụ khác.");
                 var previousConfig = state.Config; var previousSettings = state.Settings; var previousAccounts = state.Accounts.ToList(); var previousSelected = state.SelectedAccountId;
                 var previousRevision = state.Cloud.LastAppliedRevision;
@@ -115,6 +120,8 @@ public class SettingsWindow : Window
         stack.Children.Add(remove);
         var general = new StackPanel { Margin = new(24) };
         general.Children.Add(new TextBlock { Text = "Giao diện và chạy nền", FontSize = 24, FontWeight = FontWeights.SemiBold });
+        general.Children.Add(automaticScale); general.Children.Add(scaleLabel); general.Children.Add(uiScale);
+        general.Children.Add(new TextBlock { Text = "Ctrl + cuộn chuột hoặc Ctrl + / − để thu phóng; Ctrl + 0 về tự động. Nút thu phóng nằm dưới thanh bên.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new(0, 8, 0, 12) });
         general.Children.Add(showOverlay); general.Children.Add(opacityLabel); general.Children.Add(opacity);
         general.Children.Add(new TextBlock { Text = "Điều chỉnh lớp phủ khi kéo thả; file vẫn gửi được khi tắt lớp thông báo.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray });
         general.Children.Add(background); general.Children.Add(new TextBlock { Text = "Bật: nút thu nhỏ hoặc X sẽ ẩn app vào khay hệ thống cạnh đồng hồ; truyền file và cập nhật tiếp tục. Nhấp đúp icon để mở lại; chuột phải → Thoát hoàn toàn để tắt app.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray });
@@ -192,3 +199,4 @@ public class MembersWindow : Window
         Content = new ScrollViewer { Content = stack, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     }
 }
+
