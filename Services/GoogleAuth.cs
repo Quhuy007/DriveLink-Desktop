@@ -4,12 +4,31 @@ using System.Text;
 using System.Text.Json;
 namespace DriveLink.Services;
 
+/// <summary>Quyền Google của tài khoản đã hết hạn hoặc bị thu hồi (Google trả invalid_grant): chỉ đăng nhập lại mới sửa được.</summary>
+public sealed class ReauthRequiredException(Account account) : InvalidOperationException(
+    $"Phiên đăng nhập Google của {DisplayPrivacy.MaskEmail(account.Email)} đã hết hạn hoặc bị thu hồi. Bấm Đăng nhập lại để tiếp tục (không cần xóa tài khoản).")
+{
+    public Account Account { get; } = account;
+}
+
+/// <summary>Google từ chối yêu cầu lấy token; <see cref="Error"/> là mã lỗi OAuth (ví dụ invalid_grant, invalid_client).</summary>
+public sealed class OAuthTokenException(string error, string message) : InvalidOperationException(message)
+{
+    public string Error { get; } = error;
+}
+
 public sealed class GoogleAuth(HttpClient http, SavedState state, SecureStore store, TokenVault? tokenVault = null)
 {
     private readonly SemaphoreSlim refreshLock = new(1);
     private readonly TokenVault vault = tokenVault ?? TokenVault.Shared;
+    /// <summary>Một tài khoản vừa chuyển sang trạng thái cần đăng nhập lại (báo một lần cho mỗi lần chuyển).</summary>
+    public event Action<Account>? ReauthRequired;
     private static string Base64Url(byte[] data) => Convert.ToBase64String(data).TrimEnd('=').Replace('+', '-').Replace('/', '_');
-    public async Task<Account> ConnectAsync(CancellationToken ct)
+    /// <summary>
+    /// Đăng nhập Google. Với <paramref name="reconnect"/>: đăng nhập lại đúng tài khoản đó (trình duyệt điền sẵn email),
+    /// thay token mới vào tài khoản cũ; chọn nhầm tài khoản khác thì báo lỗi và không lưu gì.
+    /// </summary>
+    public async Task<Account> ConnectAsync(CancellationToken ct, Account? reconnect = null)
     {
         if (string.IsNullOrWhiteSpace(state.Config.ClientId)) throw new InvalidOperationException("Hãy nhập cấu hình OAuth Desktop của Google trước.");
         var verifier = Base64Url(RandomNumberGenerator.GetBytes(64));
@@ -24,6 +43,7 @@ public sealed class GoogleAuth(HttpClient http, SavedState state, SecureStore st
             ["access_type"] = "offline", ["prompt"] = "consent select_account", ["state"] = nonce,
             ["code_challenge"] = challenge, ["code_challenge_method"] = "S256"
         };
+        if (reconnect is not null) { args["login_hint"] = reconnect.Email; args["prompt"] = "consent"; }
         var query = string.Join("&", args.Select(x => $"{x.Key}={Uri.EscapeDataString(x.Value)}"));
         Process.Start(new ProcessStartInfo("https://accounts.google.com/o/oauth2/v2/auth?" + query) { UseShellExecute = true });
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -45,11 +65,14 @@ public sealed class GoogleAuth(HttpClient http, SavedState state, SecureStore st
         response.EnsureSuccessStatusCode();
         using var info = JsonDocument.Parse(await response.Content.ReadAsStringAsync(timeout.Token));
         var id = info.RootElement.GetProperty("sub").GetString()!;
+        if (reconnect is not null && id != reconnect.Id)
+            throw new InvalidOperationException($"Bạn đã đăng nhập tài khoản khác. Hãy chọn đúng {DisplayPrivacy.MaskEmail(reconnect.Email)} để đăng nhập lại tài khoản này.");
         var account = state.Accounts.FirstOrDefault(x => x.Id == id) ?? new Account { Id = id };
         account.Email = info.RootElement.GetProperty("email").GetString()!;
         account.Name = info.RootElement.TryGetProperty("name", out var name) ? name.GetString() ?? account.Email : account.Email;
         await ApplyTokensAsync(account, tokens.RootElement, timeout.Token);
         if (string.IsNullOrEmpty(account.RefreshToken)) throw new InvalidOperationException("Chưa nhận được quyền truy cập lâu dài. Hãy kết nối lại và cấp quyền.");
+        account.NeedsReauth = false;
         if (!state.Accounts.Contains(account)) state.Accounts.Add(account);
         state.SelectedAccountId = account.Id;
         store.Save(state);
@@ -76,17 +99,37 @@ public sealed class GoogleAuth(HttpClient http, SavedState state, SecureStore st
         await refreshLock.WaitAsync(ct);
         try
         {
+            if (account.NeedsReauth) throw new ReauthRequiredException(account);
             if (account.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(2)) return await vault.UnprotectAsync(account.AccessToken, ct);
-            using var tokens = await ExchangeAsync(new()
+            if (string.IsNullOrEmpty(account.RefreshToken)) throw MarkReauth(account);
+            JsonDocument tokens;
+            try
             {
-                ["client_id"] = state.Config.ClientId, ["client_secret"] = state.Config.ClientSecret,
-                ["refresh_token"] = await vault.UnprotectAsync(account.RefreshToken, ct), ["grant_type"] = "refresh_token"
-            }, ct);
+                tokens = await ExchangeAsync(new()
+                {
+                    ["client_id"] = state.Config.ClientId, ["client_secret"] = state.Config.ClientSecret,
+                    ["refresh_token"] = await vault.UnprotectAsync(account.RefreshToken, ct), ["grant_type"] = "refresh_token"
+                }, ct);
+            }
+            // invalid_grant: token hết hạn (app ở chế độ Testing quá 7 ngày, lâu không dùng, đổi mật khẩu) hoặc bị thu hồi.
+            catch (OAuthTokenException ex) when (ex.Error == "invalid_grant") { throw MarkReauth(account); }
+            using var _ = tokens;
             var access = await ApplyTokensAsync(account, tokens.RootElement, ct);
             store.Save(state);
             return access;
         }
         finally { refreshLock.Release(); }
+    }
+    private ReauthRequiredException MarkReauth(Account account)
+    {
+        if (!account.NeedsReauth)
+        {
+            account.NeedsReauth = true;
+            try { store.Save(state); } catch (IOException) { }
+            SecurityLog.Write("token-expired", "Google báo quyền của " + DisplayPrivacy.MaskEmail(account.Email) + " đã hết hạn hoặc bị thu hồi");
+            ReauthRequired?.Invoke(account);
+        }
+        return new ReauthRequiredException(account);
     }
     public async Task RevokeAsync(Account account, CancellationToken ct)
     {
@@ -111,7 +154,18 @@ public sealed class GoogleAuth(HttpClient http, SavedState state, SecureStore st
     private async Task<JsonDocument> ExchangeAsync(Dictionary<string, string> values, CancellationToken ct)
     {
         using var response = await http.PostAsync("https://oauth2.googleapis.com/token", new FormUrlEncodedContent(values), ct);
-        if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Không thể xác thực Google. Kiểm tra cấu hình OAuth hoặc kết nối lại tài khoản (quyền có thể đã hết hạn/thu hồi).");
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = "";
+            try { using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct)); error = json.RootElement.TryGetProperty("error", out var e) && e.ValueKind == JsonValueKind.String ? e.GetString() ?? "" : ""; }
+            catch (JsonException) { }
+            throw new OAuthTokenException(error, error switch
+            {
+                "invalid_grant" => "Google báo quyền đăng nhập đã hết hạn hoặc bị thu hồi. Hãy đăng nhập lại tài khoản.",
+                "invalid_client" or "unauthorized_client" => "Google không nhận OAuth Client hiện tại. Kiểm tra cấu hình OAuth trong Cài đặt.",
+                _ => "Không thể xác thực Google. Kiểm tra cấu hình OAuth hoặc kết nối lại tài khoản.",
+            });
+        }
         return JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
     }
     /// <summary>Lưu token mới ở dạng đã mã hóa; trả về access token dạng rõ để dùng ngay, không lưu dạng rõ.</summary>

@@ -16,10 +16,10 @@ public sealed class LanWindow : Window
     private readonly TextBlock status = new() { TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted, Margin = new(0, 6, 0, 0) };
     private readonly ProgressBar progress = new() { Height = 6, Maximum = 100, Margin = new(0, 6, 0, 0), Visibility = Visibility.Collapsed };
     private readonly DispatcherTimer refresh = new() { Interval = TimeSpan.FromSeconds(2) };
-    private readonly Action<string, long, TimeSpan, bool, string> recordActivity;
+    private readonly Action<IReadOnlyList<(string Name, long Bytes, TimeSpan Elapsed, bool Ok, string Note)>> recordActivity;
     private bool working;
 
-    public LanWindow(LanService lan, LanTrustStore trust, bool enabled, Func<bool, string?> setEnabled, Action<string, long, TimeSpan, bool, string> recordActivity)
+    public LanWindow(LanService lan, LanTrustStore trust, bool enabled, Func<bool, string?> setEnabled, Action<IReadOnlyList<(string Name, long Bytes, TimeSpan Elapsed, bool Ok, string Note)>> recordActivity)
     {
         this.lan = lan; this.trust = trust; this.recordActivity = recordActivity;
         Theme.Apply(this);
@@ -100,23 +100,36 @@ public sealed class LanWindow : Window
         var picker = new OpenFileDialog { Multiselect = true, Title = "Chọn tệp gửi thẳng tới " + device.Name };
         if (picker.ShowDialog(this) != true) return;
         working = true; progress.Visibility = Visibility.Visible;
-        var sent = 0;
+        // Cả lô đi qua một kết nối; nhật ký Hoạt động được ghi một lần khi xong (không ghi đĩa mỗi tệp).
+        var files = picker.FileNames; var finished = false; var delivered = 0;
+        var log = new System.Collections.Concurrent.ConcurrentQueue<(string Name, long Bytes, TimeSpan Elapsed, bool Ok, string Note)>();
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var report = new Progress<LanSendProgress>(p =>
+        {
+            if (finished) return;
+            progress.Value = p.Overall.Percent;
+            status.Text = $"Đang gửi {p.Name}" + (p.Count > 1 ? $" ({p.Index + 1}/{p.Count})" : "") + $" · {p.Overall.AmountLabel} · {p.Overall.SpeedLabel}";
+        });
         try
         {
-            foreach (var path in picker.FileNames)
+            await lan.SendFilesAsync(device.EndPoint, files, report, (path, size, elapsed) =>
             {
-                var name = Path.GetFileName(path); var watch = System.Diagnostics.Stopwatch.StartNew();
-                var report = new Progress<TransferProgress>(p => { progress.Value = p.Percent; status.Text = $"Đang gửi {name} · {p.AmountLabel} · {p.SpeedLabel}"; });
-                try
-                {
-                    await lan.SendFileAsync(device.EndPoint, path, report, CancellationToken.None);
-                    sent++; recordActivity(name, new FileInfo(path).Length, watch.Elapsed, true, "LAN → " + device.Name);
-                }
-                catch (Exception ex) { recordActivity(name, 0, watch.Elapsed, false, ex.Message); status.Text = $"Chưa gửi được {name}: {ex.Message}"; return; }
-            }
-            status.Text = $"Đã gửi thẳng {sent} tệp tới {device.Name}.";
+                log.Enqueue((Path.GetFileName(path), size, elapsed, true, "LAN → " + device.Name));
+                Interlocked.Increment(ref delivered);
+            }, CancellationToken.None);
+            finished = true;
+            var bytes = log.Sum(e => e.Bytes);
+            status.Text = $"Đã gửi thẳng {files.Length} tệp ({DriveItem.FormatSize(bytes)}) tới {device.Name} trong {watch.Elapsed.TotalSeconds:0.#} giây"
+                + (watch.Elapsed.TotalSeconds > 0.5 ? $" · trung bình {DriveItem.FormatSize((long)(bytes / watch.Elapsed.TotalSeconds))}/s." : ".");
         }
-        finally { working = false; progress.Visibility = Visibility.Collapsed; }
+        catch (Exception ex)
+        {
+            finished = true;
+            var name = Path.GetFileName(files[Math.Min(Volatile.Read(ref delivered), files.Length - 1)]);
+            log.Enqueue((name, 0, watch.Elapsed, false, ex.Message));
+            status.Text = (delivered > 0 ? $"Đã gửi {delivered}/{files.Length} tệp. " : "") + $"Chưa gửi được {name}: {ex.Message}";
+        }
+        finally { recordActivity(log.ToList()); working = false; progress.Visibility = Visibility.Collapsed; }
     }
 
     private void Unpair()

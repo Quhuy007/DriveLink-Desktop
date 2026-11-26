@@ -2,7 +2,7 @@
 
 Repository công khai: [Quhuy007/DriveLink-Desktop](https://github.com/Quhuy007/DriveLink-Desktop). Tải Setup Windows x64 từ Releases không cần đăng nhập GitHub. Cài một lần để bật cập nhật trong app; Setup tự cài .NET Desktop Runtime 10 nếu máy chưa có. Xem [GITHUB-RELEASES.md](GITHUB-RELEASES.md) về tải trên máy mới và phát hành bản đã ký, và [SECURITY.md](SECURITY.md) về các lớp bảo mật.
 
-Ứng dụng của **Quang Huy**. Bản hiện tại: **1.3.0**. Các bản chạy được giữ riêng trong `versions`, dùng chung kết nối tài khoản đã lưu trên máy.
+Ứng dụng của **Quang Huy**. Bản hiện tại: **1.3.1**. Các bản chạy được giữ riêng trong `versions`, dùng chung kết nối tài khoản đã lưu trên máy.
 
 **Cài đặt → Tài khoản Google → Cloud lấy OAuth**: kết nối mặc định có sẵn. Nhập mật khẩu OAuth rồi tải/mở khóa và Lưu cài đặt, không đăng nhập reader. Ctrl+Shift+A mở hộp mật khẩu admin, xác thực đúng mới mở quản trị/lịch sử. Thiếu/sai mật khẩu có khung đỏ và thông báo nổi bật. Xem [CLOUD-OAUTH.md](CLOUD-OAUTH.md) để nâng cấp Cloud hiện có. Chưa chạy nâng cấp SQL hoặc kiểm tra đăng nhập trên project thật trong quá trình phát triển; kiểm tra app sử dụng phản hồi mô phỏng. Google token chỉ lưu trên từng máy.
 
@@ -23,7 +23,8 @@ Repository công khai: [Quhuy007/DriveLink-Desktop](https://github.com/Quhuy007/
 - `versions/v1.2.0/DriveLink.exe`: bản cập nhật có chữ ký số, token Google bảo vệ bằng Windows Hello, tự thu hồi quyền tạm còn sót, giới hạn số lần nhập mật khẩu quản trị, cảnh báo tệp công khai và tệp chạy được, nhật ký bảo mật. Cần Windows 10 1809 trở lên.
 - `versions/v1.3.0/DriveLink.exe`: tự thử lại và gửi/nhận tiếp sau khi tắt app, truyền song song, Hàng đợi & Hoạt động, tệp mới tức thì + Hộp thư đến, gửi chéo thư mục, mã hóa đầu cuối, truyền thẳng LAN, giao diện sáng, chế độ nhẹ cho máy ít RAM. Cần .NET Desktop Runtime 10 (Setup tự cài).
 - Mỗi bản có ZIP mã nguồn để phục hồi. Bản mới có `release.json` ghi phiên bản và SHA-256.
-- Tạo phiên bản tiếp theo: chạy `scripts/Build-Release.ps1 -Version 1.3.1`. Script từ chối ghi đè phiên bản đã tồn tại. Các bản framework-dependent cần .NET Desktop Runtime 10 và toàn bộ tệp trong thư mục bản đó.
+- `versions/v1.3.1/DriveLink.exe`: đăng nhập lại một chạm khi phiên Google hết hạn; truyền thẳng LAN nhanh hơn (một kết nối cho cả lô, dây chuyền, băm trong lúc gửi), vẫn tương thích máy 1.3.0.
+- Tạo phiên bản tiếp theo: chạy `scripts/Build-Release.ps1 -Version 1.3.2`. Script từ chối ghi đè phiên bản đã tồn tại. Các bản framework-dependent cần .NET Desktop Runtime 10 và toàn bộ tệp trong thư mục bản đó.
 
 ## Tính năng 1.3.0
 
@@ -31,7 +32,7 @@ Repository công khai: [Quhuy007/DriveLink-Desktop](https://github.com/Quhuy007/
 - **Tệp mới tức thì:** `Services/InboxWatcher.cs` đọc nguồn thay đổi của Drive vài giây một lần. App báo bằng thông báo Windows và tự tải vào `Downloads\DriveLink - Hộp thư đến` (Cài đặt → Giao diện & hệ thống → Tệp mới từ người khác). Danh sách tệp hiện tên máy gửi và số máy đã nhận.
 - **Gửi chéo thư mục và nhiều tệp**, chọn nơi nhận (`Services/CrossBatch.cs`, `CrossDestinationWindow.cs`). **Gửi nguyên cây thư mục** chọn trong Cài đặt → Nén thư mục.
 - **Mã hóa đầu cuối** theo không gian: chuột phải không gian → Mã hóa đầu cuối (`Services/E2eCrypto.cs`, `E2eWindow.cs`).
-- **Truyền thẳng trong LAN:** nút mạng ở thanh bên (`Services/Lan`, `LanWindow.cs`).
+- **Truyền thẳng trong LAN:** nút mạng ở thanh bên (`Services/Lan`, `LanWindow.cs`). Đo tốc độ gửi/nhận trên máy này: `dotnet run --project tests/DriveLink.Checks.csproj -c Release -- --lan-bench 5` (qua loopback, kèm tốc độ từng khâu: đọc/ghi ổ, SHA-256, AES-GCM).
 - **Giao diện sáng/tối** (`Ui/Palette.*.xaml`, `Ui/ThemeChoice.cs`) và **chế độ nhẹ** cho máy ít RAM (`Ui/PerformanceMode.cs`). Đo RAM bằng `DriveLink.exe --ui-preview-main --lite`; xem giao diện sáng bằng `--light`.
 
 ## Bảo mật 1.2.0

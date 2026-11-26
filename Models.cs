@@ -9,7 +9,9 @@ public sealed class Account
     public string RefreshToken { get; set; } = "";
     public string AccessToken { get; set; } = "";
     public DateTimeOffset ExpiresAt { get; set; }
-    public override string ToString() => DisplayPrivacy.MaskEmail(Email);
+    /// <summary>Google đã thu hồi hoặc làm hết hạn quyền (invalid_grant): cần đăng nhập lại tài khoản này. Lưu lại để nhắc cả sau khi mở lại app.</summary>
+    public bool NeedsReauth { get; set; }
+    public override string ToString() => DisplayPrivacy.MaskEmail(Email) + (NeedsReauth ? " · cần đăng nhập lại" : "");
 }
 public sealed class OAuthConfig
 {

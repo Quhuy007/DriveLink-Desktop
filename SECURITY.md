@@ -96,6 +96,7 @@ Trước khi tải về, hoặc trước khi mở thư mục chứa một tệp 
 - Khi bật, app gửi gói UDP quảng bá trên cổng 47210 (chỉ mã thiết bị, tên máy, cổng) và nhận kết nối TCP trên cổng 47211. Windows có thể hỏi về tường lửa: chỉ cho phép **Mạng riêng**.
 - Mỗi máy có khóa ECDSA P-256 riêng (DPAPI). **Ghép nối** hiện cùng một mã 6 số trên hai máy, tính từ phần bắt tay đã ký. Chỉ bấm Có khi hai mã trùng nhau và chính bạn vừa bấm Ghép nối trên máy kia; nhờ vậy kẻ chen giữa không ghép nối được.
 - Chỉ máy đã ghép nối mới gửi/nhận được. Kênh truyền dùng ECDH tạm thời + AES-256-GCM, mỗi tệp được kiểm SHA-256 trước khi lưu vào `Hộp thư đến\LAN`. Bỏ ghép nối trong cửa sổ Thiết bị LAN.
+- Giao thức 2 (từ 1.3.1): cả lô tệp đi qua một kết nối; mã SHA-256 của mỗi tệp được gửi sau dữ liệu, trong cùng kênh mã hóa. Tệp chỉ được đổi từ `.lan-partial` sang tên thật khi mã khớp. Phiên bản giao thức nằm trong lời chào đã ký, nên kẻ chen giữa không ép hai máy xuống bản cũ mà không bị phát hiện. Nhật ký bảo mật ghi một dòng mỗi lô (số tệp, đuôi tệp), không ghi tên tệp.
 
 ## 11. Tự tải tệp mới
 

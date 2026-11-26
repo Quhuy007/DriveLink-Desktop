@@ -108,6 +108,7 @@ public partial class MainWindow : Window
         refreshAfterUpload.Tick += async (_, _) => { refreshAfterUpload.Stop(); await RefreshAsync(true); };
         inbox = new InboxWatcher(drive, preview ? Path.Combine(Path.GetTempPath(), "DriveLink-preview") : store.Folder) { SpacesOf = a => spaceCache.TryGetValue(a.Id, out var cached) ? cached.Spaces : [] };
         inbox.Arrived += OnIncoming;
+        auth.ReauthRequired += account => Dispatcher.BeginInvoke(() => OfferReauth(account));
         watchTimer.Tick += async (_, _) => await WatchAsync();
         notifyTimer.Tick += (_, _) => { notifyTimer.Stop(); FlushIncoming(); };
         history = new LocalFileHistory(state, store);
@@ -175,6 +176,7 @@ public partial class MainWindow : Window
         await ProtectTokensAsync();
         await RefreshAsync(); poll.Start();
         OfferResumeTransfers();
+        foreach (var expired in state.Accounts.Where(a => a.NeedsReauth).ToList()) OfferReauth(expired);
         watchTimer.Start(); _ = WatchAsync();
         if (state.Settings.LanEnabled) StartLan();
         await RecoverTemporaryGrantsAsync();
@@ -275,9 +277,9 @@ public partial class MainWindow : Window
     {
         if (CurrentAccount is { } account)
         {
-            AccountMenuText.Text = DisplayPrivacy.MaskEmail(account.Email);
+            AccountMenuText.Text = DisplayPrivacy.MaskEmail(account.Email) + (account.NeedsReauth ? " · cần đăng nhập lại" : "");
             AccountAvatarText.Text = account.Email.Length > 0 ? char.ToUpperInvariant(account.Email[0]).ToString() : "?";
-            AccountMenuButton.ToolTip = DisplayPrivacy.MaskEmail(account.Email);
+            AccountMenuButton.ToolTip = account.NeedsReauth ? "Phiên Google đã hết hạn · mở menu → Đăng nhập lại" : DisplayPrivacy.MaskEmail(account.Email);
         }
         else
         {
@@ -291,6 +293,13 @@ public partial class MainWindow : Window
     {
         if (state.Accounts.Count == 0) { Connect_Click(sender, e); return; }
         var menu = new ContextMenu { LayoutTransform = new ScaleTransform(UiPresentation.Scale, UiPresentation.Scale) };
+        foreach (var expired in state.Accounts.Where(a => a.NeedsReauth).ToList())
+        {
+            var again = new MenuItem { Header = "Đăng nhập lại " + DisplayPrivacy.MaskEmail(expired.Email) + "…", FontWeight = FontWeights.SemiBold };
+            again.Click += async (_, _) => await ConnectCoreAsync(expired);
+            menu.Items.Add(again);
+        }
+        if (state.Accounts.Any(a => a.NeedsReauth)) menu.Items.Add(new Separator());
         foreach (var account in state.Accounts)
         {
             var entry = new MenuItem { Header = DisplayPrivacy.MaskEmail(account.Email), IsCheckable = true, IsChecked = CurrentAccount?.Id == account.Id };
@@ -421,6 +430,7 @@ public partial class MainWindow : Window
     }
     private void ShowError(Exception ex)
     {
+        if (ex is ReauthRequiredException reauth) { OfferReauth(reauth.Account, userAction: true); return; }
         StatusLabel.Text = "Thao tác chưa hoàn tất. " + ex.Message;
         if (!lifetime.IsCancellationRequested) MessageBox.Show(this, ex.Message, "DriveLink", MessageBoxButton.OK, MessageBoxImage.Warning);
     }
@@ -542,12 +552,14 @@ public partial class MainWindow : Window
                 return MessageBox.Show(this, $"Máy “{name}” trong mạng LAN muốn ghép nối với máy này.\n\nMã trên máy này: {code}\n\nChỉ bấm Có nếu bạn vừa bấm Ghép nối trên máy kia VÀ mã hiện ở đó giống hệt.", "Ghép nối LAN", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
             }).Task,
         };
-        lan.FileReceived += (from, path) => Dispatcher.BeginInvoke(() =>
+        // Nhận cả lô: ghi nhật ký và báo MỘT lần cho cả lô, không mỗi tệp một thông báo.
+        lan.BatchReceived += (from, paths) => Dispatcher.BeginInvoke(() =>
         {
-            transfers.AddActivity(new ActivityEntry { Time = DateTimeOffset.Now, Direction = TransferDirection.Download, Name = Path.GetFileName(path), Space = "LAN ← " + from, Result = TransferState.Done, Bytes = new FileInfo(path).Length, LocalPath = path, Note = "Nhận thẳng trong mạng LAN" });
+            transfers.AddActivities(paths.Select(path => new ActivityEntry { Time = DateTimeOffset.Now, Direction = TransferDirection.Download, Name = Path.GetFileName(path), Space = "LAN ← " + from, Result = TransferState.Done, Bytes = File.Exists(path) ? new FileInfo(path).Length : 0, LocalPath = path, Note = "Nhận thẳng trong mạng LAN" }).ToList());
             var title = "Nhận thẳng qua LAN từ " + from;
-            if (IsVisible && IsActive) ShowIsland(IslandKind.Done, title, Path.GetFileName(path), 460, 4.5);
-            else tray.Notify(title, Path.GetFileName(path) + "\nĐã lưu vào Hộp thư đến\\LAN", () => Dispatcher.Invoke(ShowFromTray));
+            var text = paths.Count == 1 ? Path.GetFileName(paths[0]) : $"{paths.Count} tệp · {Path.GetFileName(paths[^1])}…";
+            if (IsVisible && IsActive) ShowIsland(IslandKind.Done, title, text, 460, 4.5);
+            else tray.Notify(title, text + "\nĐã lưu vào Hộp thư đến\\LAN", () => Dispatcher.Invoke(ShowFromTray));
         });
         return lan;
     }
@@ -569,7 +581,7 @@ public partial class MainWindow : Window
             state.Settings.LanEnabled = on && error is null;
             try { store.Save(state); } catch (Exception ex) { error ??= ex.Message; }
             return error;
-        }, (name, bytes, elapsed, ok, note) => transfers.AddActivity(new ActivityEntry { Time = DateTimeOffset.Now, Direction = TransferDirection.Upload, Name = name, Space = "LAN", Result = ok ? TransferState.Done : TransferState.Failed, Bytes = bytes, Seconds = elapsed.TotalSeconds, Note = note })) { Owner = this };
+        }, entries => transfers.AddActivities(entries.Select(e => new ActivityEntry { Time = DateTimeOffset.Now, Direction = TransferDirection.Upload, Name = e.Name, Space = "LAN", Result = e.Ok ? TransferState.Done : TransferState.Failed, Bytes = e.Bytes, Seconds = e.Elapsed.TotalSeconds, Note = e.Note }).ToList())) { Owner = this };
         lanWindow.Closed += (_, _) => lanWindow = null;
         lanWindow.Show();
     }
@@ -609,14 +621,45 @@ public partial class MainWindow : Window
             Settings_Click(s, e);
             if (string.IsNullOrWhiteSpace(state.Config.ClientId)) return;
         }
+        await ConnectCoreAsync(null);
+    }
+    private readonly HashSet<string> reauthOffered = [];
+    /// <summary>
+    /// Quyền Google của một tài khoản đã hết hạn: hỏi đăng nhập lại ngay (một chạm), hoặc báo bằng thông báo Windows khi app đang ẩn.
+    /// Mỗi tài khoản chỉ tự hỏi một lần mỗi lần mở app; menu tài khoản luôn có mục Đăng nhập lại.
+    /// </summary>
+    private void OfferReauth(Account account, bool userAction = false)
+    {
+        if (lifetime.IsCancellationRequested || demo) return;
+        if (CurrentAccount?.Id == account.Id) UpdateAccountMenu();
+        StatusLabel.Text = $"Phiên Google của {DisplayPrivacy.MaskEmail(account.Email)} đã hết hạn · mở menu tài khoản → Đăng nhập lại.";
+        if (!userAction && !reauthOffered.Add(account.Id)) return;
+        var text = $"Google báo phiên đăng nhập của {DisplayPrivacy.MaskEmail(account.Email)} đã hết hạn hoặc bị thu hồi.";
+        if (!IsVisible || WindowState == WindowState.Minimized)
+        {
+            tray.Notify("Cần đăng nhập lại Google", text + " Bấm để đăng nhập lại.", () => Dispatcher.Invoke(async () => { ShowFromTray(); await ConnectCoreAsync(account); }));
+            return;
+        }
+        if (busy || HasTransfers) return; // Đang bận: đã báo ở dòng trạng thái và menu tài khoản.
+        if (MessageBox.Show(this, text + "\n\nĐăng nhập lại ngay? Trình duyệt sẽ mở với sẵn email này; tài khoản, không gian và cài đặt được giữ nguyên.",
+                "Cần đăng nhập lại Google", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+            _ = ConnectCoreAsync(account);
+    }
+    /// <summary>Thêm tài khoản mới, hoặc đăng nhập lại đúng tài khoản <paramref name="reconnect"/> (giữ nguyên tài khoản và dữ liệu đã lưu).</summary>
+    private async Task ConnectCoreAsync(Account? reconnect)
+    {
+        if (busy || refreshing || HasTransfers) { StatusLabel.Text = "Chờ thao tác hiện tại hoàn tất trước khi đăng nhập."; return; }
+        if (string.IsNullOrWhiteSpace(state.Config.ClientId)) { Settings_Click(this, new RoutedEventArgs()); if (string.IsNullOrWhiteSpace(state.Config.ClientId)) return; }
         operation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
         SetBusy(true);
         var login = new LoginStatusWindow(() => operation?.Cancel()) { Owner = this };
         login.Show();
         try
         {
-            StatusLabel.Text = "Đang chờ bạn đăng nhập Google trong trình duyệt…";
-            var account = await auth.ConnectAsync(operation.Token);
+            StatusLabel.Text = reconnect is null ? "Đang chờ bạn đăng nhập Google trong trình duyệt…" : "Đang chờ bạn đăng nhập lại " + DisplayPrivacy.MaskEmail(reconnect.Email) + " trong trình duyệt…";
+            var account = await auth.ConnectAsync(operation.Token, reconnect);
+            reauthOffered.Remove(account.Id);
+            if (reconnect is not null) SecurityLog.Write("token-renewed", "Đăng nhập lại " + DisplayPrivacy.MaskEmail(account.Email));
             ReloadAccounts();
             StatusLabel.Text = "Đã kết nối Google: " + DisplayPrivacy.MaskEmail(account.Email);
             await login.CompleteAsync(true, "Đã liên kết " + account.Email + ". Bạn có thể gửi và nhận file.");

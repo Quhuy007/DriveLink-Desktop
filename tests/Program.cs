@@ -17,6 +17,15 @@ if (args.Length == 2 && args[0] == "--update-feed")
     return;
 }
 
+if (args.Length >= 1 && args[0] == "--lan-bench")
+{
+    var benchRoot = Path.Combine(Path.GetTempPath(), "DriveLink-bench-" + Guid.NewGuid().ToString("N"));
+    SecurityChecks.Isolate(benchRoot);
+    try { await LanBench.Run(benchRoot, args.Length > 1 ? int.Parse(args[1]) : 5); }
+    finally { try { Directory.Delete(benchRoot, true); } catch (IOException) { } }
+    return;
+}
+
 int passed = 0;
 void Check(bool condition, string message) { if (!condition) throw new Exception(message); passed++; Console.WriteLine("PASS " + message); }
 var account = new Account { Id = "test", Email = "test@example.com" };
@@ -278,6 +287,7 @@ try
     await CrossBatchChecks.Run(Check, root);
     await E2eChecks.Run(Check, root);
     await LanChecks.Run(Check, root);
+    await ReauthChecks.Run(Check, root);
     await SecurityChecks.Run(Check, root);
     await UpdateChecks.Run(Check, store);
     var uiThread = new Thread(() =>

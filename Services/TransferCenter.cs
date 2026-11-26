@@ -389,6 +389,19 @@ public sealed class TransferCenter
         Changed?.Invoke();
     }
 
+    /// <summary>Ghi nhiều lượt một lần (một lần ghi đĩa) — ví dụ cả lô tệp gửi/nhận qua LAN.</summary>
+    public void AddActivities(IReadOnlyList<ActivityEntry> entries)
+    {
+        if (entries.Count == 0) return;
+        lock (activity)
+        {
+            activity.InsertRange(0, entries.Reverse());
+            if (activity.Count > ActivityLimit) activity.RemoveRange(ActivityLimit, activity.Count - ActivityLimit);
+            activityStore.Save(activity);
+        }
+        Changed?.Invoke();
+    }
+
     public void ClearActivity() { lock (activity) { activity.Clear(); activityStore.Save(activity); } Changed?.Invoke(); }
 
     private void Persist(TransferRecord record) { lock (records) { if (!records.Contains(record)) { records.RemoveAll(r => r.Id == record.Id); records.Add(record); } journal.Save(records); } }

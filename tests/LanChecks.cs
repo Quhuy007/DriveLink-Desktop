@@ -9,6 +9,11 @@ using System.Text;
 /// <summary>Truyền thẳng trong LAN giữa hai "máy" trên cùng máy kiểm thử (khóa riêng, danh sách ghép nối riêng).</summary>
 static class LanChecks
 {
+    private sealed class Inline<T>(Action<T> report) : IProgress<T> { public void Report(T value) => report(value); }
+    private static string Write(string folder, string name, int size) { Directory.CreateDirectory(folder); var path = Path.Combine(folder, name); var data = new byte[size]; Random.Shared.NextBytes(data); File.WriteAllBytes(path, data); return path; }
+    private static bool SameFiles(IEnumerable<string> sent, IEnumerable<string> got) =>
+        sent.Count() == got.Count() && sent.All(s => got.Any(g => Path.GetFileName(g) == Path.GetFileName(s) && File.ReadAllBytes(g).SequenceEqual(File.ReadAllBytes(s))));
+
     private static int FreePort() { var l = new TcpListener(IPAddress.Loopback, 0); l.Start(); var port = ((IPEndPoint)l.LocalEndpoint).Port; l.Stop(); return port; }
 
     public static async Task Run(Action<bool, string> check, string root)
@@ -47,6 +52,45 @@ static class LanChecks
             var path = await received.Task.WaitAsync(TimeSpan.FromSeconds(10));
             check(File.ReadAllBytes(path).SequenceEqual(data) && path.StartsWith(Path.Combine(inbox, "LAN")) && Path.GetFileName(path) == "anh-chup.png",
                 "A paired computer sends a file directly over the LAN, verified by SHA-256, into the Inbox");
+
+            // Cả lô qua một kết nối: tệp rỗng, tệp nhiều khối 1 MB, tệp nhỏ; báo nhận một lần cho cả lô.
+            var batch = new[] { Write(Path.Combine(dirA, "lo"), "rong.txt", 0), Write(Path.Combine(dirA, "lo"), "video.mp4", 2_500_000), Write(Path.Combine(dirA, "lo"), "ghi-chu.txt", 1234) };
+            var batchDone = new TaskCompletionSource<IReadOnlyList<string>>(TaskCreationOptions.RunContinuationsAsynchronously);
+            b.BatchReceived += (_, paths) => batchDone.TrySetResult(paths);
+            var delivered = 0; var seenIndexes = new System.Collections.Concurrent.ConcurrentBag<int>(); var lastPercent = 0d;
+            await a.SendFilesAsync(toB, batch, new Inline<LanSendProgress>(p => { seenIndexes.Add(p.Index); lastPercent = p.Overall.Percent; }), (_, _, _) => Interlocked.Increment(ref delivered), CancellationToken.None);
+            var gotBatch = await batchDone.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            check(SameFiles(batch, gotBatch) && delivered == 3 && seenIndexes.Contains(2) && lastPercent == 100,
+                "Several files go to a paired computer over one connection, each verified, with one notice for the whole batch");
+            var log = SecurityLog.ReadRecent(20);
+            check(log.Count(l => l.Contains("\"lan-sent\"") && l.Contains(" 3 t")) == 1 && log.Count(l => l.Contains("\"lan-received\"") && l.Contains(" 3 t")) == 1 && !log.Any(l => l.Contains("video") || l.Contains("ghi-chu")),
+                "The security log records one line per LAN batch, without file names");
+
+            // Tương thích với DriveLink 1.3.0 (giao thức 1) theo cả hai chiều.
+            var dirC = Path.Combine(root, "lan-c"); var cTrust = new LanTrustStore(dirC); var inboxC = Path.Combine(dirC, "inbox"); Directory.CreateDirectory(inboxC);
+            var c = new LanService(LanIdentity.Load(dirC, "MAY-CU"), cTrust, FreePort(), FreePort()) { ProtocolVersion = 1, ReceiveFolder = () => inboxC };
+            c.Start(discovery: false);
+            try
+            {
+                cTrust.Add("MAY-A", a.Identity.PublicKey); new LanTrustStore(dirA).Add("MAY-CU", c.Identity.PublicKey);
+                cTrust.Add("MAY-B", b.Identity.PublicKey); bTrust.Add("MAY-CU", c.Identity.PublicKey);
+                var toOld = new[] { Write(Path.Combine(dirA, "cu"), "bao-cao.docx", 1_200_000), Write(Path.Combine(dirA, "cu"), "anh.jpg", 4096) };
+                var oldGot = new System.Collections.Concurrent.ConcurrentQueue<string>();
+                c.FileReceived += (_, path) => oldGot.Enqueue(path);
+                await a.SendFilesAsync(new IPEndPoint(IPAddress.Loopback, c.TransferPort), toOld, null, null, CancellationToken.None);
+                await Task.Delay(200);
+                check(SameFiles(toOld, oldGot), "A new computer still sends files to a computer running DriveLink 1.3.0");
+
+                var fromOld = new[] { Write(Path.Combine(dirC, "gui"), "so-lieu.xlsx", 2_100_000), Write(Path.Combine(dirC, "gui"), "readme.txt", 10) };
+                var newGot = new System.Collections.Concurrent.ConcurrentQueue<string>();
+                void Collect(string _, string path) => newGot.Enqueue(path);
+                b.FileReceived += Collect;
+                await c.SendFilesAsync(toB, fromOld, null, null, CancellationToken.None);
+                await Task.Delay(200);
+                b.FileReceived -= Collect;
+                check(SameFiles(fromOld, newGot), "A computer running DriveLink 1.3.0 can still send files to a new computer");
+            }
+            finally { await c.StopAsync(); }
 
             bTrust.Remove(a.Identity.Id);
             var rejected = false;

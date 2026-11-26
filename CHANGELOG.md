@@ -1,3 +1,19 @@
+# v1.3.1
+
+DriveLink 1.3.1 — Quang Huy · Đăng nhập lại một chạm và truyền LAN nhanh hơn
+
+- Đăng nhập lại một chạm khi Google báo phiên đăng nhập hết hạn hoặc bị thu hồi (invalid_grant, ví dụ OAuth app còn ở chế độ Testing quá 7 ngày): tài khoản hiện "cần đăng nhập lại", app hỏi một lần (hoặc gửi thông báo Windows khi đang ẩn), trình duyệt mở sẵn đúng email; tài khoản, không gian và cài đặt giữ nguyên. Chọn nhầm tài khoản khác thì không lưu gì. Menu tài khoản luôn có mục Đăng nhập lại.
+- Lỗi cấu hình OAuth Client (invalid_client) được báo riêng, không nhầm với hết phiên.
+- Truyền thẳng LAN nhanh hơn:
+  - Không đọc tệp hai lần: mã SHA-256 được tính trong lúc gửi và gửi ở cuối mỗi tệp.
+  - Đọc ổ, mã hóa và gửi mạng chạy song song theo dây chuyền (máy nhận cũng vậy với nhận, giải mã và ghi ổ).
+  - Dùng lại vài bộ đệm 1 MB thay vì cấp phát mới mỗi khối.
+  - Nhiều tệp đi qua một kết nối, chỉ bắt tay một lần; báo nhận và ghi nhật ký một lần cho cả lô.
+  - Gửi ngay các gói nhỏ (tắt Nagle), bộ đệm socket 1 MB, đặt trước kích thước tệp nhận.
+  - Đo trên cùng một máy qua loopback (`--lan-bench`, trung vị 5 lần, hai vòng xen kẽ bản cũ/mới): 1 tệp 1 GB 11,6 s → 2,7–4,4 s; 300 tệp 100 KB 4,1–7,9 s → 1,2–2,1 s; bộ nhớ cấp phát khi gửi 1 GB 3.078 MB → 15 MB. Qua mạng thật, tốc độ vẫn bị giới hạn bởi Wi-Fi/cáp và ổ đĩa.
+  - Vẫn gửi/nhận được với máy chạy 1.3.0 (hai máy báo phiên bản giao thức khi bắt tay; với máy cũ thì dùng cách cũ).
+- Thêm 9 kiểm thử (tổng 361).
+
 # v1.3.0
 
 DriveLink 1.3.0 — Quang Huy · Truyền tải, thông báo, mã hóa đầu cuối, LAN, giao diện sáng và chế độ nhẹ
