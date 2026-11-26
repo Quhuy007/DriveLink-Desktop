@@ -14,6 +14,13 @@ static class LanChecks
     private static bool SameFiles(IEnumerable<string> sent, IEnumerable<string> got) =>
         sent.Count() == got.Count() && sent.All(s => got.Any(g => Path.GetFileName(g) == Path.GetFileName(s) && File.ReadAllBytes(g).SequenceEqual(File.ReadAllBytes(s))));
 
+    /// <summary>Chờ tới khi điều kiện đúng (tối đa vài giây) thay vì chờ cố định — máy chạy kiểm thử chậm (GitHub Actions) vẫn ổn định.</summary>
+    private static async Task Until(Func<bool> condition, double seconds = 15)
+    {
+        var end = DateTime.UtcNow.AddSeconds(seconds);
+        while (!condition() && DateTime.UtcNow < end) await Task.Delay(25);
+    }
+
     private static int FreePort() { var l = new TcpListener(IPAddress.Loopback, 0); l.Start(); var port = ((IPEndPoint)l.LocalEndpoint).Port; l.Stop(); return port; }
 
     public static async Task Run(Action<bool, string> check, string root)
@@ -45,11 +52,11 @@ static class LanChecks
             string? codeA = null, codeB = null, nameSeenByB = null;
             b.ConfirmPairing = (name, code) => { codeB = code; nameSeenByB = name; return Task.FromResult(true); };
             var paired = await a.PairAsync(toB, (_, code) => { codeA = code; return Task.FromResult(true); }, CancellationToken.None);
-            await Task.Delay(200);
+            await Until(() => bTrust.IsTrusted(a.Identity.PublicKey));
             check(paired && codeA is { Length: 6 } && codeA == codeB && nameSeenByB == "MAY-A" && bTrust.IsTrusted(a.Identity.PublicKey), "Pairing shows the same 6-digit code on both computers and remembers each other's key");
 
             await a.SendFileAsync(toB, file, null, CancellationToken.None);
-            var path = await received.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            var path = await received.Task.WaitAsync(TimeSpan.FromSeconds(30));
             check(File.ReadAllBytes(path).SequenceEqual(data) && path.StartsWith(Path.Combine(inbox, "LAN")) && Path.GetFileName(path) == "anh-chup.png",
                 "A paired computer sends a file directly over the LAN, verified by SHA-256, into the Inbox");
 
@@ -59,7 +66,7 @@ static class LanChecks
             b.BatchReceived += (_, paths) => batchDone.TrySetResult(paths);
             var delivered = 0; var seenIndexes = new System.Collections.Concurrent.ConcurrentBag<int>(); var lastPercent = 0d;
             await a.SendFilesAsync(toB, batch, new Inline<LanSendProgress>(p => { seenIndexes.Add(p.Index); lastPercent = p.Overall.Percent; }), (_, _, _) => Interlocked.Increment(ref delivered), CancellationToken.None);
-            var gotBatch = await batchDone.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            var gotBatch = await batchDone.Task.WaitAsync(TimeSpan.FromSeconds(30));
             check(SameFiles(batch, gotBatch) && delivered == 3 && seenIndexes.Contains(2) && lastPercent == 100,
                 "Several files go to a paired computer over one connection, each verified, with one notice for the whole batch");
             var log = SecurityLog.ReadRecent(20);
@@ -78,7 +85,7 @@ static class LanChecks
                 var oldGot = new System.Collections.Concurrent.ConcurrentQueue<string>();
                 c.FileReceived += (_, path) => oldGot.Enqueue(path);
                 await a.SendFilesAsync(new IPEndPoint(IPAddress.Loopback, c.TransferPort), toOld, null, null, CancellationToken.None);
-                await Task.Delay(200);
+                await Until(() => oldGot.Count >= toOld.Length);
                 check(SameFiles(toOld, oldGot), "A new computer still sends files to a computer running DriveLink 1.3.0");
 
                 var fromOld = new[] { Write(Path.Combine(dirC, "gui"), "so-lieu.xlsx", 2_100_000), Write(Path.Combine(dirC, "gui"), "readme.txt", 10) };
@@ -86,7 +93,7 @@ static class LanChecks
                 void Collect(string _, string path) => newGot.Enqueue(path);
                 b.FileReceived += Collect;
                 await c.SendFilesAsync(toB, fromOld, null, null, CancellationToken.None);
-                await Task.Delay(200);
+                await Until(() => newGot.Count >= fromOld.Length);
                 b.FileReceived -= Collect;
                 check(SameFiles(fromOld, newGot), "A computer running DriveLink 1.3.0 can still send files to a new computer");
             }

@@ -29,7 +29,7 @@ $sourceNames += @('UiPresentation.cs','FileWindows.cs','tests\FileActionChecks.c
 $sourceNames += @('tests\CrossCopyChecks.cs','GlassMessageBox.cs')
 $sourceNames += @('cloud\supabase-keepalive\README.md','cloud\supabase-keepalive\package.json','cloud\supabase-keepalive\package-lock.json','cloud\supabase-keepalive\cloudflare.config.ts','cloud\supabase-keepalive\vite.config.ts','cloud\supabase-keepalive\src\index.ts','cloud\supabase-keepalive\.gitignore')
 $sourceNames += @('scripts\Preview-Login.cjs')
-$sourceNames += @('QueueWindow.cs','CrossDestinationWindow.cs','E2eWindow.cs','LanWindow.cs','tests\TransferChecks.cs','tests\InboxChecks.cs','tests\CrossBatchChecks.cs','tests\E2eChecks.cs','tests\LanChecks.cs','tests\LanBench.cs','tests\ReauthChecks.cs')
+$sourceNames += @('QueueWindow.cs','CrossDestinationWindow.cs','E2eWindow.cs','LanWindow.cs','MainWindow.Arrange.cs','tests\BentoChecks.cs','tests\TransferChecks.cs','tests\InboxChecks.cs','tests\CrossBatchChecks.cs','tests\E2eChecks.cs','tests\LanChecks.cs','tests\LanBench.cs','tests\ReauthChecks.cs')
 $sourceNames += @('tests\SecurityChecks.cs','scripts\New-UpdateSigningKey.ps1','scripts\Sign-Release.ps1','scripts\Verify-Release.ps1','scripts\Publish-Release.ps1')
 foreach ($folder in @('Ui','Preview')) {
  $folderPath = Join-Path $projectRoot $folder

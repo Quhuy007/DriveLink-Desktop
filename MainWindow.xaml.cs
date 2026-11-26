@@ -328,9 +328,9 @@ public partial class MainWindow : Window
         UpdateAccountMenu();
     }
     /// <summary>
-    /// Bố cục Bento theo độ rộng thực (đã chia tỷ lệ thu phóng):
-    /// rộng → hai cột widget; vừa → một cột (gửi tệp, truyền tải, không gian); hẹp → một cột gọn.
-    /// Gửi chéo vẫn dùng được từ menu chuột phải khi widget bị ẩn.
+    /// Bố cục Bento theo độ rộng thực (đã chia tỷ lệ thu phóng): rộng → các ô nhỏ xếp hai cột; vừa/hẹp → một cột cuộn được.
+    /// Thứ tự, cỡ, ô ẩn và bên đặt danh sách tệp theo bố cục người dùng sắp xếp (MainWindow.Arrange.cs).
+    /// Gửi chéo vẫn dùng được từ menu chuột phải khi ô bị ẩn.
     /// </summary>
     private void ApplyLayout(double width, double height)
     {
@@ -338,17 +338,13 @@ public partial class MainWindow : Window
         var narrow = width < 940;
         SideGrid.Width = wide ? 600 : narrow ? 262 : 316;
         SideColB.Width = wide ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-        SideGrid.MinHeight = wide ? 600 : 640;
-        static void Place(UIElement card, int row, int column, int rowSpan) { Grid.SetRow(card, row); Grid.SetColumn(card, column); Grid.SetRowSpan(card, rowSpan); }
-        Place(SendCard, 0, 0, 1);
-        if (wide) { Place(TransferCard, 0, 1, 2); Place(SpacesCard, 1, 0, 1); Place(CrossCard, 2, 0, 1); Place(StorageCard, 2, 1, 1); }
-        else { Place(TransferCard, 1, 0, 1); Place(SpacesCard, 2, 0, 1); }
-        CrossCard.Visibility = StorageCard.Visibility = Spark.Visibility = wide ? Visibility.Visible : Visibility.Collapsed;
+        PlaceBento(wide);
+        Spark.Visibility = wide ? Visibility.Visible : Visibility.Collapsed;
         OrbHost.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
         SpaceSubtitle.Visibility = height < 600 ? Visibility.Collapsed : Visibility.Visible;
         SelectionLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
         // Thanh trên và tiêu đề thẻ tệp thu gọn dần để nút cửa sổ và tên không gian không bao giờ bị đẩy ra ngoài.
-        var filesWidth = width - 148 - SideGrid.Width;
+        var filesWidth = width - 148 - (SideScroll.Visibility == Visibility.Visible ? SideGrid.Width : 0);
         MembersText.Visibility = CopyLinkText.Visibility = filesWidth < 520 ? Visibility.Collapsed : Visibility.Visible;
         BrandText.Visibility = width < 1100 ? Visibility.Collapsed : Visibility.Visible;
         AccountMenuText.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
@@ -373,6 +369,7 @@ public partial class MainWindow : Window
     }
     private void Zoom_KeyDown(object s, KeyEventArgs e)
     {
+        if (IsArranging && e.Key == Key.Escape) { FinishArrange(save: true); e.Handled = true; return; }
         if (Keyboard.Modifiers != ModifierKeys.Control) return;
         if (e.Key is Key.Add or Key.OemPlus) ChangeZoom(.05);
         else if (e.Key is Key.Subtract or Key.OemMinus) ChangeZoom(-.05);
@@ -767,6 +764,7 @@ public partial class MainWindow : Window
     }
     private void Upload_DragOver(object s, DragEventArgs e)
     {
+        if (e.Data.GetDataPresent(BentoFormat)) return; // Đang kéo ô khi sắp xếp bố cục, không phải thả tệp.
         var canSend = !busy && !demo && CurrentAccount is not null && CurrentSpace is not null && e.Data.GetDataPresent(DataFormats.FileDrop);
         e.Effects = canSend ? DragDropEffects.Copy : DragDropEffects.None;
         DropOverlay.Visibility = canSend && state.Settings.ShowDropOverlay ? Visibility.Visible : Visibility.Collapsed;
@@ -785,6 +783,7 @@ public partial class MainWindow : Window
     }
     private async void Upload_Drop(object s, DragEventArgs e)
     {
+        if (e.Data.GetDataPresent(BentoFormat)) return;
         DropOverlay.Visibility = Visibility.Collapsed;
         SetDropState(false);
         e.Handled = true;

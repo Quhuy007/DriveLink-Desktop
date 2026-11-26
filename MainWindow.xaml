@@ -152,6 +152,7 @@
             <Rectangle Height="1" Width="28" Fill="{StaticResource GlLine}" Margin="0,8"/>
             <Button Style="{StaticResource GlRound}" Width="44" Height="44" Margin="0,0,0,4" Click="Lan_Click" ToolTip="Thiết bị trong mạng LAN"><TextBlock Style="{StaticResource GlIcon}" Text="&#xE968;" FontSize="16"/></Button>
             <Button Style="{StaticResource GlRound}" Width="44" Height="44" Margin="0,0,0,4" Click="Queue_Click" ToolTip="Hàng đợi &amp; Hoạt động"><TextBlock Style="{StaticResource GlIcon}" Text="&#xE14C;" FontSize="16"/></Button>
+            <Button x:Name="ArrangeButtonDock" Style="{StaticResource GlRound}" Width="44" Height="44" Margin="0,0,0,4" Click="Arrange_Click" ToolTip="Sắp xếp bố cục (kéo thả các ô)"><TextBlock Style="{StaticResource GlIcon}" Text="&#xF0E2;" FontSize="16"/></Button>
             <Button Style="{StaticResource GlRound}" Width="44" Height="44" Click="Settings_Click" ToolTip="Cài đặt"><TextBlock Style="{StaticResource GlIcon}" Text="&#xE713;" FontSize="17"/></Button>
             <Button Style="{StaticResource GlRound}" Width="44" Height="44" Margin="0,4,0,0" Click="Updates_Click" ToolTip="Kiểm tra cập nhật">
               <Grid>

@@ -286,6 +286,7 @@ try
     await InboxChecks.Run(Check, root);
     await CrossBatchChecks.Run(Check, root);
     await E2eChecks.Run(Check, root);
+    BentoChecks.Run(Check);
     await LanChecks.Run(Check, root);
     await ReauthChecks.Run(Check, root);
     await SecurityChecks.Run(Check, root);
@@ -426,8 +427,11 @@ try
         });
         Dispatcher.Run();
     });
+    var uiWatch = Stopwatch.StartNew();
     uiThread.SetApartmentState(ApartmentState.STA); uiThread.Start();
-    await uiDone.Task.WaitAsync(TimeSpan.FromSeconds(30));
+    // Giới hạn chỉ để không treo mãi: máy chạy kiểm thử của GitHub chậm hơn máy thường nhiều (từng vượt 30 giây).
+    await uiDone.Task.WaitAsync(TimeSpan.FromMinutes(5));
+    Console.WriteLine($"UI checks took {uiWatch.Elapsed.TotalSeconds:0} s");
     if (args.Contains("--export-previews"))
     {
         var preview = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "login-previews")); Directory.CreateDirectory(preview);

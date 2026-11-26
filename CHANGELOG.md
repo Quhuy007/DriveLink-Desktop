@@ -1,3 +1,11 @@
+# v1.4.0
+
+DriveLink 1.4.0 — Quang Huy · Tự sắp xếp bố cục bento
+
+- Tự sắp xếp bố cục bento của màn hình chính: nút Sắp xếp (biểu tượng lưới) ở thanh bên → kéo một ô thả lên ô khác để đổi chỗ, đổi cỡ thường/cao, ẩn ô không dùng (hiện lại từ thanh Sắp xếp), chuyển danh sách tệp sang trái/phải. Xong hoặc Esc để lưu, Hủy để bỏ, Mặc định để về bố cục ban đầu. Lưới luôn kín (ô bên cạnh hoặc phía trên tự giãn lấp chỗ trống). Cửa sổ hẹp xếp mọi ô đang hiện thành một cột cuộn được, đúng thứ tự đã chọn. Bố cục lưu trong Cài đặt của từng máy.
+- Kiểm thử trên GitHub Actions không còn hỏng vì phần giao diện chạy quá 30 giây trên máy chậm.
+- Thêm 14 kiểm thử (tổng 375).
+
 # v1.3.1
 
 DriveLink 1.3.1 — Quang Huy · Đăng nhập lại một chạm và truyền LAN nhanh hơn

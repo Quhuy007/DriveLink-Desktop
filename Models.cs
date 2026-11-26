@@ -72,6 +72,8 @@ public sealed class UserSettings
     public string FolderUploadMode { get; set; } = "zip";
     /// <summary>Truyền thẳng trong mạng LAN (mặc định tắt: chỉ mở cổng khi người dùng bật).</summary>
     public bool LanEnabled { get; set; }
+    /// <summary>Bố cục bento của màn hình chính (thứ tự, cỡ, ô ẩn, bên đặt danh sách tệp).</summary>
+    public Ui.BentoLayout Layout { get; set; } = Ui.BentoLayout.Default();
     public string ResolveInboxFolder() => InboxFolder.Length > 0 ? InboxFolder : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "DriveLink - Hộp thư đến");
 }
 public sealed class SpacePreference

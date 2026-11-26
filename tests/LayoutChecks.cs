@@ -55,6 +55,7 @@ static class LayoutChecks
             using (var stream = File.Create(Path.Combine(output, $"main-{width:0}x{height:0}-{zoom * 100:0}.png"))) encoder.Save(stream);
             window.Close();
         }
+        await ArrangeChecks(check, store, output);
         UiPresentation.Scale = 1;
         var posted = 0;
         using var http = new HttpClient(new ActionHandler(request =>
@@ -94,6 +95,49 @@ static class LayoutChecks
         File.WriteAllText(Path.Combine(output, "oauth-failed.html"), OAuthResultPage.Render(false, "Yêu cầu đã bị hủy hoặc quá thời gian chờ. Bạn có thể thử lại trong ứng dụng."));
         Console.WriteLine("UI previews: " + output);
     }
+    /// <summary>Bố cục bento tùy chỉnh được áp dụng khi mở cửa sổ; chế độ Sắp xếp đổi chỗ, ẩn, lưu và hủy đúng.</summary>
+    private static async Task ArrangeChecks(Action<bool, string> check, SecureStore store, string output)
+    {
+        const BindingFlags hidden = BindingFlags.NonPublic | BindingFlags.Instance;
+        var layout = DriveLink.Ui.BentoLayout.Default();
+        layout.FilesOnRight = true;
+        layout[DriveLink.Ui.BentoLayout.Storage].Visible = false;
+        layout[DriveLink.Ui.BentoLayout.Transfer].Tall = false;
+        layout[DriveLink.Ui.BentoLayout.Spaces].Tall = true;
+        var state = new SavedState { Accounts = [new Account { Id = "fixture", Email = "quanghuy.demo@example.com" }], Settings = new() { UiScale = 1, Layout = layout } };
+        var window = new MainWindow(state, store, true, new UpdateFixture { CanInstall = false }) { Width = 1366, Height = 738, WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000, Top = -10000, ShowInTaskbar = false };
+        window.Show(); await window.Dispatcher.InvokeAsync(() => window.UpdateLayout(), DispatcherPriority.ApplicationIdle);
+        UIElement Card(string name) => (UIElement)window.FindName(name);
+        check(Grid.GetColumn(Card("FilesCard")) == 1 && Grid.GetColumn(Card("SideScroll")) == 0 && Card("StorageCard").Visibility == Visibility.Collapsed
+            && Grid.GetRowSpan(Card("SpacesCard")) == 2 && Grid.GetRowSpan(Card("TransferCard")) == 1 && ((DataGrid)window.FindName("FilesGrid")).ActualWidth > 500,
+            "The main window opens with the saved bento layout (file list on the right, hidden and resized tiles)");
+        Save(window, Path.Combine(output, "main-custom-layout.png"));
+
+        typeof(MainWindow).GetMethod("StartArrange", hidden)!.Invoke(window, null);
+        await window.Dispatcher.InvokeAsync(() => window.UpdateLayout(), DispatcherPriority.ApplicationIdle);
+        var side = (Grid)window.FindName("SideGrid");
+        var overlays = side.Children.OfType<Grid>().Where(g => g.Tag is string).ToList();
+        check(overlays.Count == 4 && overlays.All(o => Grid.GetRow(o) == Grid.GetRow((UIElement)window.FindName(o.Tag switch { "send" => "SendCard", "transfer" => "TransferCard", "spaces" => "SpacesCard", "cross" => "CrossCard", _ => "StorageCard" }))),
+            "Arrange mode covers each visible tile with a draggable frame in the same place");
+        Save(window, Path.Combine(output, "main-arrange.png"));
+
+        var change = typeof(MainWindow).GetMethod("ChangeArrange", hidden)!;
+        change.Invoke(window, [new Action<DriveLink.Ui.BentoLayout>(l => { l.Swap("send", "cross"); l["storage"].Visible = true; l.FilesOnRight = false; })]);
+        typeof(MainWindow).GetMethod("FinishArrange", hidden)!.Invoke(window, [false]);
+        check(state.Settings.Layout.FilesOnRight && !state.Settings.Layout["storage"].Visible && Grid.GetColumn(Card("FilesCard")) == 1 && Card("StorageCard").Visibility == Visibility.Collapsed,
+            "Cancel in arrange mode discards the changes");
+
+        typeof(MainWindow).GetMethod("StartArrange", hidden)!.Invoke(window, null);
+        change.Invoke(window, [new Action<DriveLink.Ui.BentoLayout>(l => { l.Swap("send", "cross"); l["storage"].Visible = true; l.FilesOnRight = false; })]);
+        typeof(MainWindow).GetMethod("FinishArrange", hidden)!.Invoke(window, [true]);
+        await window.Dispatcher.InvokeAsync(() => window.UpdateLayout(), DispatcherPriority.ApplicationIdle);
+        var saved = store.Load().Settings.Layout.Normalize();
+        check(saved.Tiles[0].Id == "cross" && saved.Tiles[3].Id == "send" && saved["storage"].Visible && !saved.FilesOnRight
+            && Grid.GetColumn(Card("FilesCard")) == 0 && Card("StorageCard").Visibility == Visibility.Visible && !side.Children.OfType<Grid>().Any(g => g.Tag is string),
+            "Done in arrange mode saves the new layout and removes the frames");
+        window.Close();
+    }
+
     /// <summary>Lưu ảnh một cửa sổ vào thư mục ảnh giao diện của phiên bản hiện tại.</summary>
     public static void Snapshot(Window window, string name)
     {

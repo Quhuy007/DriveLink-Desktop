@@ -1,8 +1,12 @@
-DriveLink 1.3.1 — Quang Huy
+DriveLink 1.4.0 — Quang Huy
 
-- Đăng nhập lại một chạm: khi Google báo phiên đăng nhập đã hết hạn hoặc bị thu hồi (ví dụ OAuth app còn ở chế độ Testing quá 7 ngày), tài khoản hiện "cần đăng nhập lại" và app hỏi một lần (hoặc gửi thông báo Windows khi đang ẩn). Trình duyệt mở sẵn đúng email; tài khoản, không gian và cài đặt giữ nguyên. Menu tài khoản luôn có mục Đăng nhập lại.
-- Lỗi cấu hình OAuth Client được báo riêng, không nhầm với hết phiên đăng nhập.
-- Truyền thẳng trong mạng LAN nhanh hơn: nhiều tệp đi qua một kết nối, đọc ổ/mã hóa/gửi mạng chạy song song, không đọc tệp hai lần, dùng ít bộ nhớ hơn nhiều. Đo trên một máy: tệp 1 GB nhanh hơn khoảng 3–4 lần, 300 tệp nhỏ nhanh hơn khoảng 3,5 lần. Qua mạng thật, tốc độ vẫn tùy Wi-Fi/cáp và ổ đĩa.
-- Nhận cả lô qua LAN chỉ hiện một thông báo; cửa sổ LAN hiện thứ tự tệp đang gửi và tốc độ trung bình khi xong.
+- Tự sắp xếp màn hình chính theo ý mình: bấm nút Sắp xếp bố cục (biểu tượng lưới ở thanh bên trái), rồi
+  - kéo một ô thả lên ô khác để đổi chỗ;
+  - đổi cỡ ô thường (1 hàng) hoặc cao (2 hàng);
+  - ẩn ô không dùng, hiện lại từ thanh Sắp xếp ở dưới;
+  - chuyển danh sách tệp sang trái hoặc phải.
+  Bấm Xong (hoặc Esc) để lưu, Hủy để bỏ, Mặc định để về bố cục ban đầu. Các ô luôn xếp kín, không chừa khoảng trống.
+- Cửa sổ hẹp: mọi ô đang hiện xếp thành một cột cuộn được, theo đúng thứ tự đã chọn (trước đây Gửi chéo và Dung lượng bị ẩn).
+- Bố cục lưu riêng trên từng máy.
 
-Cập nhật từ 1.3.0: mở Kiểm tra cập nhật trong app. Tài khoản, cài đặt và khóa được giữ nguyên. Máy 1.3.1 vẫn gửi/nhận LAN được với máy 1.3.0 (khi đó dùng cách cũ, không nhanh hơn). Không cần chạy thêm SQL Cloud cho bản này.
+Cập nhật từ 1.3.x: mở Kiểm tra cập nhật trong app. Tài khoản, cài đặt và khóa được giữ nguyên; màn hình chính giữ bố cục cũ cho tới khi bạn sắp xếp lại. Không cần chạy thêm SQL Cloud cho bản này.

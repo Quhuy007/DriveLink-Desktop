@@ -12,7 +12,7 @@
     <RootNamespace>DriveLink</RootNamespace>
     <!-- Chỉ giữ tài nguyên tiếng Việt của thư viện, bỏ các ngôn ngữ khác để gói nhỏ hơn. -->
     <SatelliteResourceLanguages>vi</SatelliteResourceLanguages>
-    <Version>1.3.1</Version>
+    <Version>1.4.0</Version>
     <StartupObject>DriveLink.App</StartupObject>
     <Authors>Quang Huy</Authors>
     <Product>DriveLink — Quang Huy</Product>
