@@ -1,3 +1,11 @@
+# v1.1.2
+
+DriveLink 1.1.2 — Quang Huy
+
+- Bấm Tải về hoặc Mở trên Drive khi chưa chọn tệp giờ được báo rõ: thông báo "Chưa chọn tệp", thẻ danh sách tệp sáng lên và dòng trạng thái hướng dẫn chọn tệp (trước đây app không phản hồi gì).
+- Đóng Cài đặt không còn làm mất tệp đang chọn; danh sách tải lại sẽ chọn lại đúng tệp đó. Đổi tài khoản hoặc không gian vẫn bỏ chọn như trước.
+- Đã thử trên app thật với hai tài khoản Google: gửi chéo (sao chép trên máy chủ, 0 MB qua máy), dung lượng, tải về, menu chuột phải, Cài đặt và đổi tài khoản.
+
 # v1.1.1
 
 DriveLink 1.1.1 — Quang Huy

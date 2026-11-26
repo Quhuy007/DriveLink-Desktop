@@ -424,7 +424,8 @@ public partial class MainWindow : Window
     private void RenderFiles()
     {
         if (FilesGrid is null) return;
-        var selectedId = CurrentFile?.Id;
+        var selectedId = CurrentFile?.Id ?? keepSelectionId;
+        if (files.Count > 0) keepSelectionId = null; // Chỉ giữ lựa chọn qua đúng một lần tải lại danh sách.
         IEnumerable<DriveItem> visible = files;
         if (filter == 1) visible = visible.Where(x => x.Owners.Any(o => o.Me));
         if (filter == 2) visible = visible.Where(x => !x.Owners.Any(o => o.Me));
@@ -475,7 +476,11 @@ public partial class MainWindow : Window
         ApplyUserSettings();
         poll.Start();
         if (demo) return;
-        ReloadAccounts(); files = []; SpacesList.ItemsSource = null; RenderFiles();
+        // Nhớ tệp đang chọn trước khi làm mới; xóa danh sách không gian ở chế độ "applying" để không bị coi là người dùng đổi không gian.
+        keepSelectionId = CurrentFile?.Id;
+        ReloadAccounts();
+        applying = true; SpacesList.ItemsSource = null; applying = false;
+        ClearFilesKeepingSelection();
         _ = RefreshAsync();
     }
     private async void Connect_Click(object s, RoutedEventArgs e)
@@ -674,7 +679,7 @@ public partial class MainWindow : Window
     }
     private async void Download_Click(object s, RoutedEventArgs e)
     {
-        if (!Ready() || busy || lifetime.IsCancellationRequested || CurrentFile is not { } file) return;
+        if (!Ready() || busy || lifetime.IsCancellationRequested || !EnsureFileSelected("tải về") || CurrentFile is not { } file) return;
         if (file.MimeType.StartsWith("application/vnd.google-apps.")) { MessageBox.Show(this, "Dùng Mở trên Drive cho thư mục và tài liệu Google. Bản đầu chưa hỗ trợ xuất tài liệu Google.", "Tải về"); return; }
         var safeName = string.Concat(file.Name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
         var picker = new SaveFileDialog { FileName = safeName, Title = "Lưu file", OverwritePrompt = true };
@@ -718,9 +723,30 @@ public partial class MainWindow : Window
     }
     private void OpenFile_Click(object s, RoutedEventArgs e)
     {
-        if (!Ready() || CurrentFile is not { } file) return;
+        if (!Ready() || !EnsureFileSelected("mở trên Drive") || CurrentFile is not { } file) return;
         try { Process.Start(new ProcessStartInfo(file.BrowserUrl) { UseShellExecute = true }); }
         catch (Exception ex) { ShowError(ex); }
+    }
+    private string? keepSelectionId;
+    /// <summary>Xóa danh sách để tải lại nhưng nhớ tệp đang chọn, để chọn lại khi danh sách mới về.</summary>
+    private void ClearFilesKeepingSelection()
+    {
+        keepSelectionId = CurrentFile?.Id ?? keepSelectionId;
+        files = []; RenderFiles();
+    }
+    /// <summary>Báo rõ khi bấm thao tác tệp mà chưa chọn tệp nào, thay vì im lặng.</summary>
+    private bool EnsureFileSelected(string action)
+    {
+        if (CurrentFile is not null) return true;
+        var message = files.Count == 0 ? "Danh sách chưa có tệp nào" : "Chọn một tệp trong danh sách để " + action;
+        StatusLabel.Text = message + ".";
+        ShowIsland(IslandKind.Warn, "Chưa chọn tệp", message, 380, 2.8);
+        FilesCard.IsHighlighted = true;
+        var unhighlight = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.2) };
+        unhighlight.Tick += (_, _) => { unhighlight.Stop(); FilesCard.IsHighlighted = false; };
+        unhighlight.Start();
+        if (files.Count > 0) FilesGrid.Focus();
+        return false;
     }
     private void FileRow_Click(object s, MouseButtonEventArgs e)
     {

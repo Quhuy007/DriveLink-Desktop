@@ -31,6 +31,25 @@ static class LayoutChecks
             check(menu.Items.OfType<MenuItem>().Select(x => (string)x.Header).SequenceEqual(new[] { "Đổi tên", "Tải xuống", "Tạo bản sao", "Chia sẻ", "Thông tin", "Chuyển vào thùng rác" }), "File menu follows the requested order");
             var info = menu.Items.OfType<MenuItem>().Single(x => (string)x.Header == "Thông tin");
             check(info.Items.OfType<MenuItem>().Select(x => (string)x.Header).SequenceEqual(new[] { "Thông tin chi tiết", "Khóa" }), "Information submenu contains only details and lock");
+            if (zoom == 1)
+            {
+                const BindingFlags hidden = BindingFlags.NonPublic | BindingFlags.Instance;
+                var filesField = typeof(MainWindow).GetField("files", hidden)!;
+                var loaded = (List<DriveItem>)filesField.GetValue(window)!;
+                var chosen = (DriveItem)grid.Items[2];
+                grid.SelectedItem = chosen;
+                typeof(MainWindow).GetMethod("ClearFilesKeepingSelection", hidden)!.Invoke(window, null);
+                var cleared = grid.Items.Count == 0 && grid.SelectedItem is null;
+                filesField.SetValue(window, loaded);
+                typeof(MainWindow).GetMethod("RenderFiles", hidden)!.Invoke(window, null);
+                check(cleared && (grid.SelectedItem as DriveItem)?.Id == chosen.Id, "Reloading the file list after settings keeps the selected file");
+                grid.SelectedItem = null;
+                var allowed = (bool)typeof(MainWindow).GetMethod("EnsureFileSelected", hidden)!.Invoke(window, ["tải về"])!;
+                var status = ((TextBlock)window.FindName("StatusLabel")).Text;
+                check(!allowed && status.Contains("Chọn một tệp trong danh sách để tải về"), "Download without a selected file explains what to do instead of doing nothing");
+                grid.SelectedItem = chosen;
+                check((bool)typeof(MainWindow).GetMethod("EnsureFileSelected", hidden)!.Invoke(window, ["tải về"])!, "Download proceeds when a file is selected");
+            }
             var image = new RenderTargetBitmap((int)width, (int)height, 96, 96, PixelFormats.Pbgra32); image.Render(window);
             var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(image));
             using (var stream = File.Create(Path.Combine(output, $"main-{width:0}x{height:0}-{zoom * 100:0}.png"))) encoder.Save(stream);

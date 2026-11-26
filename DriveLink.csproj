@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>DriveLink</AssemblyName>
     <RootNamespace>DriveLink</RootNamespace>
-    <Version>1.1.1</Version>
+    <Version>1.1.2</Version>
     <StartupObject>DriveLink.App</StartupObject>
     <Authors>Quang Huy</Authors>
     <Product>DriveLink — Quang Huy</Product>
