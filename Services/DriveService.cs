@@ -33,7 +33,7 @@ public sealed partial class DriveService(HttpClient http, Func<Account, Cancella
             (HttpStatusCode)429 => "Google đang giới hạn yêu cầu. Vui lòng thử lại sau.",
             _ => $"Google Drive trả về lỗi {(int)response.StatusCode}."
         };
-        throw new InvalidOperationException(explanation + (detail.Length > 0 ? "\n" + detail : ""));
+        throw new DriveApiException(response.StatusCode, explanation + (detail.Length > 0 ? "\n" + detail : ""));
     }
     private async Task<List<T>> ListAsync<T>(Account account, string url, string key, CancellationToken ct)
     {

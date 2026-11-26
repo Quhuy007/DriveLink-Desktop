@@ -96,6 +96,7 @@ public sealed class DriveItem
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("mimeType")] public string MimeType { get; set; } = "";
     [JsonPropertyName("size"), JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)] public long Size { get; set; }
+    [JsonPropertyName("md5Checksum")] public string Md5 { get; set; } = "";
     [JsonPropertyName("createdTime")] public DateTimeOffset CreatedAt { get; set; }
     [JsonPropertyName("webViewLink")] public string WebViewLink { get; set; } = "";
     [JsonPropertyName("owners")] public List<DriveOwner> Owners { get; set; } = [];
@@ -115,7 +116,7 @@ public sealed class DriveItem
     public string BrowserUrl => MimeType == "application/vnd.google-apps.folder"
         ? "https://drive.google.com/drive/folders/" + Uri.EscapeDataString(Id)
         : "https://drive.google.com/file/d/" + Uri.EscapeDataString(Id) + "/view";
-    public static string FormatSize(long bytes) => bytes >= 1073741824 ? $"{bytes / 1073741824d:0.#} GB" : bytes >= 1048576 ? $"{bytes / 1048576d:0.#} MB" : bytes >= 1024 ? $"{bytes / 1024d:0.#} KB" : $"{bytes} B";
+    public static string FormatSize(long bytes) => bytes >= 1099511627776 ? $"{bytes / 1099511627776d:0.##} TB" : bytes >= 1073741824 ? $"{bytes / 1073741824d:0.#} GB" : bytes >= 1048576 ? $"{bytes / 1048576d:0.#} MB" : bytes >= 1024 ? $"{bytes / 1024d:0.#} KB" : $"{bytes} B";
 }
 public sealed record TransferProgress(long BytesTransferred, long? TotalBytes, double BytesPerSecond)
 {

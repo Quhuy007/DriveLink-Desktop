@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Media;
+using DriveLink.Ui;
 namespace DriveLink;
 
 public partial class LoginStatusWindow : Window
@@ -11,7 +12,7 @@ public partial class LoginStatusWindow : Window
     private bool ownerClosing;
     public LoginStatusWindow(Action cancel)
     {
-        InitializeComponent(); this.cancel = cancel;
+        InitializeComponent(); this.cancel = cancel; Theme.Apply(this);
         Loaded += (_, _) => { if (Owner is not null) Owner.Closing += Owner_Closing; };
         Closed += (_, _) => { closed.Cancel(); if (Owner is not null) Owner.Closing -= Owner_Closing; };
     }
@@ -20,7 +21,7 @@ public partial class LoginStatusWindow : Window
         if (completed || closed.IsCancellationRequested) return;
         completed = true;
         StateTitle.Text = success ? "✓ Đăng nhập thành công" : "! Đăng nhập không thành công";
-        StateTitle.Foreground = new SolidColorBrush(success ? Color.FromRgb(22, 132, 100) : Color.FromRgb(211, 70, 85));
+        StateTitle.Foreground = (success ? Theme.Success : Theme.Danger);
         StateDetail.Text = detail; StateDetail.ToolTip = detail;
         WaitingProgress.IsIndeterminate = false; WaitingProgress.Value = 100;
         WaitingProgress.Foreground = StateTitle.Foreground;

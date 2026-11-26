@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using DriveLink.Services;
+using DriveLink.Ui;
 namespace DriveLink;
 
 public sealed class FileShareWindow : Window
@@ -30,20 +31,20 @@ public sealed class FileShareWindow : Window
     public FileShareWindow(DriveService drive, Account account, DriveItem file)
     {
         this.drive = drive; this.account = account; this.file = file;
-        Title = "Chia sẻ — " + file.Name; Width = 620; Height = Math.Min(750, SystemParameters.WorkArea.Height); WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        Theme.Apply(this); Title = "Chia sẻ — " + file.Name; Width = 620; Height = Math.Min(750, SystemParameters.WorkArea.Height); WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var panel = new StackPanel { Margin = new(24) };
         panel.Children.Add(new TextBlock { Text = "Chia sẻ “" + file.Name + "”", TextWrapping = TextWrapping.Wrap, FontSize = 22, FontWeight = FontWeights.SemiBold });
         panel.Children.Add(status);
         panel.Children.Add(new TextBlock { Text = "Thêm người hoặc nhóm", FontWeight = FontWeights.SemiBold }); panel.Children.Add(email);
         var inviteOptions = new Grid(); inviteOptions.ColumnDefinitions.Add(new()); inviteOptions.ColumnDefinitions.Add(new());
         recipientType.Margin = new(0, 0, 8, 0); inviteOptions.Children.Add(recipientType); Grid.SetColumn(recipientRole, 1); inviteOptions.Children.Add(recipientRole); panel.Children.Add(inviteOptions);
-        panel.Children.Add(notify); panel.Children.Add(new TextBlock { Text = "Tin nhắn (không bắt buộc)", Foreground = Brushes.SlateGray, Margin = new(0, 8, 0, 0) }); panel.Children.Add(message); panel.Children.Add(send);
+        panel.Children.Add(notify); panel.Children.Add(new TextBlock { Text = "Tin nhắn (không bắt buộc)", Foreground = Theme.Muted, Margin = new(0, 8, 0, 0) }); panel.Children.Add(message); panel.Children.Add(send);
         send.Style = (Style)FindResource("Primary");
         panel.Children.Add(new TextBlock { Text = "Những người có quyền truy cập", FontSize = 16, FontWeight = FontWeights.SemiBold, Margin = new(0, 22, 0, 8) });
         panel.Children.Add(people);
         panel.Children.Add(new TextBlock { Text = "Quyền truy cập chung", FontSize = 16, FontWeight = FontWeights.SemiBold, Margin = new(0, 20, 0, 4) });
         panel.Children.Add(general); panel.Children.Add(domain); panel.Children.Add(generalRole); panel.Children.Add(saveGeneral);
-        var note = new TextBlock { Text = "Bị hạn chế: chỉ người đã được cấp quyền có thể mở. Quyền kế thừa từ không gian/thư mục vẫn có hiệu lực. Quyền và giới hạn của tổ chức được Google kiểm tra.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, FontSize = 12, Margin = new(0, 10, 0, 12) }; panel.Children.Add(note);
+        var note = new TextBlock { Text = "Bị hạn chế: chỉ người đã được cấp quyền có thể mở. Quyền kế thừa từ không gian/thư mục vẫn có hiệu lực. Quyền và giới hạn của tổ chức được Google kiểm tra.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted, FontSize = 12, Margin = new(0, 10, 0, 12) }; panel.Children.Add(note);
         var options = new StackPanel(); options.Children.Add(writersShare); options.Children.Add(restrictCopy); options.Children.Add(saveOptions);
         panel.Children.Add(new Expander { Header = "Tùy chọn chia sẻ", Content = options, Margin = new(0, 4, 0, 16) });
         saveOptions.Click += async (_, _) => await Run(async ct => { await drive.SetSharingOptionsAsync(account, file.Id, file.Owners.Any(x => x.Me) ? writersShare.IsChecked == true : null, file.Capabilities.CanChangeCopyRequiresWriterPermission ? restrictCopy.IsChecked == true : null, ct); applied = true; await Load(ct); SetStatus("Đã lưu tùy chọn chia sẻ."); });
@@ -88,7 +89,7 @@ public sealed class FileShareWindow : Window
         Closing += (_, e) => { if (busy) { e.Cancel = true; SetStatus("Đang xử lý với Google. Chờ kết quả trước khi đóng cửa sổ."); } };
         Closed += (_, _) => lifetime.Cancel(); ShowGeneralOptions(); SetEnabled(false);
     }
-    private void SetStatus(string text, bool error = false) { status.Text = (error ? "⚠ " : "") + text; status.Foreground = error ? Brushes.Firebrick : Brushes.SlateGray; }
+    private void SetStatus(string text, bool error = false) { status.Text = (error ? "⚠ " : "") + text; status.Foreground = error ? Brushes.Firebrick : Theme.Muted; }
     private void SetEnabled(bool enabled)
     {
         send.IsEnabled = saveGeneral.IsEnabled = email.IsEnabled = recipientType.IsEnabled = recipientRole.IsEnabled = general.IsEnabled = generalRole.IsEnabled = domain.IsEnabled = notify.IsEnabled = enabled;
@@ -143,10 +144,10 @@ public sealed class FileDetailsWindow : Window
 {
     public FileDetailsWindow(DriveItem file)
     {
-        Title = "Thông tin chi tiết — " + file.Name; Width = 520; Height = Math.Min(650, SystemParameters.WorkArea.Height); WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        Theme.Apply(this); Title = "Thông tin chi tiết — " + file.Name; Width = 520; Height = Math.Min(650, SystemParameters.WorkArea.Height); WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var panel = new StackPanel { Margin = new(24) };
         panel.Children.Add(new TextBlock { Text = "Thông tin chi tiết", FontSize = 24, FontWeight = FontWeights.SemiBold, Margin = new(0, 0, 0, 20) });
-        void Add(string label, string value) { panel.Children.Add(new TextBlock { Text = label, Foreground = Brushes.SlateGray, Margin = new(0, 10, 0, 4) }); panel.Children.Add(new TextBlock { Text = value, TextWrapping = TextWrapping.Wrap, FontWeight = FontWeights.SemiBold }); }
+        void Add(string label, string value) { panel.Children.Add(new TextBlock { Text = label, Foreground = Theme.Muted, Margin = new(0, 10, 0, 4) }); panel.Children.Add(new TextBlock { Text = value, TextWrapping = TextWrapping.Wrap, FontWeight = FontWeights.SemiBold }); }
         Add("Tên file", file.Name); Add("Loại", file.Kind + " · " + file.MimeType); Add("Dung lượng", file.SizeLabel); Add("Chủ sở hữu", file.OwnerLabel);
         Add("Được tạo", file.TimeLabel); Add("Được sửa", file.ModifiedAt == default ? "Chưa có thông tin" : file.ModifiedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss"));
         Add("Trạng thái", file.IsLocked ? "Đã khóa chỉnh sửa" : "Chưa khóa");

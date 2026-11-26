@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.Win32;
 using DriveLink.Services;
+using DriveLink.Ui;
 namespace DriveLink;
 
 public class PromptWindow : Window
@@ -13,7 +14,7 @@ public class PromptWindow : Window
     public string Value => input.Text.Trim();
     public PromptWindow(string title, string description, string hint, string buttonText = "Tạo không gian", string initial = "", int maxLength = 100)
     {
-        Title = title; Width = 480; SizeToContent = SizeToContent.Height; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        Theme.Apply(this); Title = title; Width = 480; SizeToContent = SizeToContent.Height; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var stack = new StackPanel { Margin = new(24) };
         stack.Children.Add(new TextBlock { Text = title, FontSize = 22, FontWeight = FontWeights.SemiBold });
         stack.Children.Add(new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap, Margin = new(0, 10, 0, 0) });
@@ -32,7 +33,7 @@ public class SettingsWindow : Window
 {
     public SettingsWindow(SavedState state, SecureStore store, Action<Window>? openUpdates = null)
     {
-        Title = "Cài đặt — DriveLink · Quang Huy"; Width = 680; Height = 760; WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        Theme.Apply(this); Title = "Cài đặt — DriveLink · Quang Huy"; Width = 680; Height = 760; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var installed = CompressionTools.Detect();
         var automaticScale = new CheckBox { Content = "Tự chọn tỷ lệ theo màn hình", IsChecked = state.Settings.UiScale == 0, Margin = new(0, 12, 0, 8) };
         var uiScale = new Slider { Minimum = 60, Maximum = 150, TickFrequency = 5, IsSnapToTickEnabled = true, Value = DisplayPrivacy.ResolveScale(state.Settings.UiScale, SystemParameters.WorkArea.Width, SystemParameters.WorkArea.Height) * 100, IsEnabled = state.Settings.UiScale != 0 };
@@ -42,7 +43,7 @@ public class SettingsWindow : Window
         var autoUpdates = new CheckBox { Content = "Tự kiểm tra phiên bản mới khi mở app và mỗi 6 giờ", IsChecked = state.Settings.CheckUpdatesOnStartup, Margin = new(0, 18, 0, 16) };
         var showOverlay = new CheckBox { Content = "Hiển thị lớp thông báo khi kéo file vào app", IsChecked = state.Settings.ShowDropOverlay, Margin = new(0, 12, 0, 12) };
         var opacity = new Slider { Minimum = 0, Maximum = 100, Value = Math.Clamp(state.Settings.DropOverlayOpacity * 100, 0, 100), TickFrequency = 5, IsSnapToTickEnabled = true, Margin = new(0, 8, 0, 8) };
-        var opacityLabel = new TextBlock { Text = $"Độ đậm nền: {opacity.Value:0}% (100% = không trong suốt)", Foreground = Brushes.SlateGray };
+        var opacityLabel = new TextBlock { Text = $"Độ đậm nền: {opacity.Value:0}% (100% = không trong suốt)", Foreground = Theme.Muted };
         opacity.ValueChanged += (_, _) => opacityLabel.Text = $"Độ đậm nền: {opacity.Value:0}% (100% = không trong suốt)";
         var background = new CheckBox { Content = "Thu nhỏ/đóng cửa sổ vào khay hệ thống và chạy nền", IsChecked = state.Settings.RunInBackground, Margin = new(0, 24, 0, 12) };
         var startup = new CheckBox { Content = "Chạy khi đăng nhập Windows", IsChecked = StartupRegistration.IsEnabled(), Margin = new(0, 12, 0, 12) };
@@ -73,9 +74,9 @@ public class SettingsWindow : Window
         var cloud = new Button { Content = "Cloud lấy OAuth…", Margin = new(0, 0, 0, 12) };
         cloud.Click += (_, _) => new CloudConfigWindow(state, store, (next, revision) => { config = next; clientId.Text = next.ClientId; pendingCloudRevision = revision.Id; }) { Owner = this }.ShowDialog();
         stack.Children.Add(cloud);
-        stack.Children.Add(new TextBlock { Text = "Cloud được thiết lập sẵn. Chỉ cần mật khẩu OAuth để nhận cấu hình trên máy mới; không cần nhập tài khoản reader.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new(0, 0, 0, 12) });
-        stack.Children.Add(new TextBlock { Text = "Thiết lập: bật Google Drive API → cấu hình Google Auth Platform → thêm Test users → tạo OAuth Client loại Desktop app → tải JSON. Xem README.md để biết chi tiết.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new(0, 0, 0, 12) });
-        stack.Children.Add(new TextBlock { Text = "Bản đầu yêu cầu quyền Drive đầy đủ để tìm thư mục được chia sẻ giữa các tài khoản. OAuth Testing có thể yêu cầu kết nối lại sau 7 ngày. Chưa cấu hình Google? Bạn vẫn có thể xem thử giao diện.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new(0, 0, 0, 20) });
+        stack.Children.Add(new TextBlock { Text = "Cloud được thiết lập sẵn. Chỉ cần mật khẩu OAuth để nhận cấu hình trên máy mới; không cần nhập tài khoản reader.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted, Margin = new(0, 0, 0, 12) });
+        stack.Children.Add(new TextBlock { Text = "Thiết lập: bật Google Drive API → cấu hình Google Auth Platform → thêm Test users → tạo OAuth Client loại Desktop app → tải JSON. Xem README.md để biết chi tiết.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted, Margin = new(0, 0, 0, 12) });
+        stack.Children.Add(new TextBlock { Text = "Bản đầu yêu cầu quyền Drive đầy đủ để tìm thư mục được chia sẻ giữa các tài khoản. OAuth Testing có thể yêu cầu kết nối lại sau 7 ngày. Chưa cấu hình Google? Bạn vẫn có thể xem thử giao diện.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted, Margin = new(0, 0, 0, 20) });
         var save = new Button { Content = "Lưu cấu hình", Style = (Style)FindResource("Primary") };
         save.Click += (_, _) =>
         {
@@ -121,22 +122,22 @@ public class SettingsWindow : Window
         var general = new StackPanel { Margin = new(24) };
         general.Children.Add(new TextBlock { Text = "Giao diện và chạy nền", FontSize = 24, FontWeight = FontWeights.SemiBold });
         general.Children.Add(automaticScale); general.Children.Add(scaleLabel); general.Children.Add(uiScale);
-        general.Children.Add(new TextBlock { Text = "Ctrl + cuộn chuột hoặc Ctrl + / − để thu phóng; Ctrl + 0 về tự động. Nút thu phóng nằm dưới thanh bên.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new(0, 8, 0, 12) });
+        general.Children.Add(new TextBlock { Text = "Ctrl + cuộn chuột hoặc Ctrl + / − để thu phóng; Ctrl + 0 về tự động. Nút thu phóng nằm ở thanh trên cùng.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted, Margin = new(0, 8, 0, 12) });
         general.Children.Add(showOverlay); general.Children.Add(opacityLabel); general.Children.Add(opacity);
-        general.Children.Add(new TextBlock { Text = "Điều chỉnh lớp phủ khi kéo thả; file vẫn gửi được khi tắt lớp thông báo.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray });
-        general.Children.Add(background); general.Children.Add(new TextBlock { Text = "Bật: nút thu nhỏ hoặc X sẽ ẩn app vào khay hệ thống cạnh đồng hồ; truyền file và cập nhật tiếp tục. Nhấp đúp icon để mở lại; chuột phải → Thoát hoàn toàn để tắt app.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray });
-        general.Children.Add(startup); general.Children.Add(new TextBlock { Text = "Đăng ký cho người dùng Windows hiện tại. Nếu bật cả chạy nền, app khởi động trong khay hệ thống. Windows có thể trì hoãn tác vụ khởi động.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray });
+        general.Children.Add(new TextBlock { Text = "Điều chỉnh lớp phủ khi kéo thả; file vẫn gửi được khi tắt lớp thông báo.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted });
+        general.Children.Add(background); general.Children.Add(new TextBlock { Text = "Bật: nút thu nhỏ hoặc X sẽ ẩn app vào khay hệ thống cạnh đồng hồ; truyền file và cập nhật tiếp tục. Nhấp đúp icon để mở lại; chuột phải → Thoát hoàn toàn để tắt app.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted });
+        general.Children.Add(startup); general.Children.Add(new TextBlock { Text = "Đăng ký cho người dùng Windows hiện tại. Nếu bật cả chạy nền, app khởi động trong khay hệ thống. Windows có thể trì hoãn tác vụ khởi động.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted });
         var restore = new Button { Content = "Hiện lại các không gian đã ẩn trên máy", Margin = new(0, 24, 0, 12) };
         restore.Click += (_, _) => { try { foreach (var preference in state.SpacePreferences.Values) preference.Hidden = false; store.Save(state); restore.Content = "Đã hiện lại — đóng cài đặt để làm mới"; } catch (Exception ex) { MessageBox.Show(this, ex.Message, "Chưa lưu được"); } };
         general.Children.Add(restore);
-        general.Children.Add(new TextBlock { Text = "Màu và ghim được lưu riêng trên máy này. Chuột phải lên không gian để đánh dấu, ghim, ẩn hoặc đưa vào Thùng rác Drive.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray });
+        general.Children.Add(new TextBlock { Text = "Màu và ghim được lưu riêng trên máy này. Chuột phải lên không gian để đánh dấu, ghim, ẩn hoặc đưa vào Thùng rác Drive.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted });
         var compression = new StackPanel { Margin = new(24) };
         compression.Children.Add(new TextBlock { Text = "Gửi cả thư mục", FontSize = 24, FontWeight = FontWeights.SemiBold });
         compression.Children.Add(new TextBlock { Text = "Thả thư mục vào app hoặc bấm Chọn thư mục. Ứng dụng nén trước, rồi gửi một file đóng gói; thư mục gốc được giữ nguyên.", TextWrapping = TextWrapping.Wrap, Margin = new(0, 16, 0, 20) });
         compression.Children.Add(new TextBlock { Text = "Định dạng" }); compression.Children.Add(format);
         compression.Children.Add(new TextBlock { Text = "Công cụ nén" }); compression.Children.Add(tool); compression.Children.Add(strong);
-        compression.Children.Add(new TextBlock { Text = installed.Summary, Foreground = Brushes.SlateGray, Margin = new(0, 0, 0, 16) });
-        compression.Children.Add(new TextBlock { Text = "ZIP dễ trao đổi; RAR có thể nén tốt hơn, nhất là nhiều file tương tự. Ảnh/video/file đã nén thường giảm ít. Nén mạnh cần thêm thời gian và RAM. ZIP luôn có phương án tích hợp nếu chưa cài công cụ ngoài. Không tự cài hoặc tải phần mềm nén.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray });
+        compression.Children.Add(new TextBlock { Text = installed.Summary, Foreground = Theme.Muted, Margin = new(0, 0, 0, 16) });
+        compression.Children.Add(new TextBlock { Text = "ZIP dễ trao đổi; RAR có thể nén tốt hơn, nhất là nhiều file tương tự. Ảnh/video/file đã nén thường giảm ít. Nén mạnh cần thêm thời gian và RAM. ZIP luôn có phương án tích hợp nếu chưa cài công cụ ngoài. Không tự cài hoặc tải phần mềm nén.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted });
         var tabs = new TabControl();
         tabs.Items.Add(new TabItem { Header = "Giao diện & hệ thống", Content = new ScrollViewer { Content = general, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
         tabs.Items.Add(new TabItem { Header = "Nén thư mục", Content = new ScrollViewer { Content = compression, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
@@ -147,7 +148,7 @@ public class SettingsWindow : Window
         updates.Children.Add(autoUpdates);
         var checkUpdates = new Button { Content = "Kiểm tra và cập nhật…", IsEnabled = openUpdates is not null };
         checkUpdates.Click += (_, _) => openUpdates?.Invoke(this); updates.Children.Add(checkUpdates);
-        updates.Children.Add(new TextBlock { Text = "App thông báo khi có bản mới và chỉ tải/cài khi bạn chọn cập nhật. Trước khi khởi động lại, app chờ các lượt gửi/nhận hoàn tất. Tài khoản và các cài đặt đã lưu được giữ nguyên. Tắt kiểm tra tự động vẫn có thể kiểm tra thủ công.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new(0, 18, 0, 0) });
+        updates.Children.Add(new TextBlock { Text = "App thông báo khi có bản mới và chỉ tải/cài khi bạn chọn cập nhật. Trước khi khởi động lại, app chờ các lượt gửi/nhận hoàn tất. Tài khoản và các cài đặt đã lưu được giữ nguyên. Tắt kiểm tra tự động vẫn có thể kiểm tra thủ công.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted, Margin = new(0, 18, 0, 0) });
         tabs.Items.Add(new TabItem { Header = "Cập nhật", Content = new ScrollViewer { Content = updates, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
         var content = new Grid { Margin = new(12) }; content.RowDefinitions.Add(new RowDefinition()); content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         content.Children.Add(tabs); Grid.SetRow(save, 1); save.Margin = new(12, 12, 12, 4); content.Children.Add(save); Content = content;
@@ -159,18 +160,18 @@ public class MembersWindow : Window
     private bool busy;
     public MembersWindow(DriveService drive, Account account, Space space)
     {
-        Title = "Thành viên — " + space; Width = 600; Height = 590; WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        Theme.Apply(this); Title = "Thành viên — " + space; Width = 600; Height = 590; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var stack = new StackPanel { Margin = new(24) };
         stack.Children.Add(new TextBlock { Text = "Chia sẻ không gian", FontSize = 24, FontWeight = FontWeights.SemiBold });
         stack.Children.Add(new TextBlock { Text = "Mời tài khoản Google trên máy còn lại. Người nhận mở cùng ứng dụng và bấm làm mới để thấy không gian.", TextWrapping = TextWrapping.Wrap, Margin = new(0, 12, 0, 16) });
         var email = new TextBox { ToolTip = "Địa chỉ email người nhận", Margin = new(0, 0, 0, 10) };
         var roles = new ComboBox { ItemsSource = new[] { "Chỉ xem và tải về", "Gửi, chỉnh sửa và tải về" }, SelectedIndex = 0, Margin = new(0, 0, 0, 10) };
         var invite = new Button { Content = "Mời bằng email", Style = (Style)FindResource("Primary") };
-        var status = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new(0, 12, 0, 12), Foreground = Brushes.SlateGray };
+        var status = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new(0, 12, 0, 12), Foreground = Theme.Muted };
         var list = new ListBox { Height = 170 };
         var remove = new Button { Content = "Thu hồi quyền thành viên đã chọn", Margin = new(0, 12, 0, 0) };
         stack.Children.Add(email); stack.Children.Add(roles); stack.Children.Add(invite); stack.Children.Add(status); stack.Children.Add(list); stack.Children.Add(remove);
-        stack.Children.Add(new TextBlock { Text = "Thao tác áp dụng cho thư mục chung. Google quyết định quyền bạn có thể thay đổi. Quyền riêng được cấp trực tiếp trên từng file cần quản lý trên Drive; thu hồi không xóa bản đã tải về.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, FontSize = 12, Margin = new(0, 12, 0, 0) });
+        stack.Children.Add(new TextBlock { Text = "Thao tác áp dụng cho thư mục chung. Google quyết định quyền bạn có thể thay đổi. Quyền riêng được cấp trực tiếp trên từng file cần quản lý trên Drive; thu hồi không xóa bản đã tải về.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted, FontSize = 12, Margin = new(0, 12, 0, 0) });
         async Task Run(Func<Task> work)
         {
             if (busy) return;

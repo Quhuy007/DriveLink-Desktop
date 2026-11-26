@@ -267,6 +267,7 @@ try
     var uiDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
     await CloudChecks.Run(Check, store);
     await FileActionChecks.Run(Check);
+    await CrossCopyChecks.Run(Check);
     await UpdateChecks.Run(Check, store);
     var uiThread = new Thread(() =>
     {
@@ -285,13 +286,14 @@ try
                 Check(AppBrand.Icon.PixelWidth > 0, "Application icon is embedded and readable");
                 await LayoutChecks.Run(Check, store, root);
                 var startupBefore = StartupRegistration.IsEnabled();
-                var options = new SettingsWindow(new SavedState(), store); options.Show();
+                var options = new SettingsWindow(new SavedState(), store) { WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000, Top = -10000, ShowInTaskbar = false }; options.Show();
+                LayoutChecks.Snapshot(options, "settings.png");
                 var settingsGrid = (Grid)options.Content;
                 Check(settingsGrid.Children.OfType<TabControl>().Single().Items.Count == 4, "Settings includes interface/system, compression, accounts and updates");
                 var updateFlow = new AppUpdateFlow(new UpdateFixture());
                 await updateFlow.CheckAsync(CancellationToken.None);
                 var updates = new UpdateWindow(updateFlow, () => false, () => { }) { WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000, Top = -10000, ShowInTaskbar = false };
-                updates.Show(); updates.UpdateLayout();
+                updates.Show(); updates.UpdateLayout(); LayoutChecks.Snapshot(updates, "update.png");
                 var updatePanel = (StackPanel)((ScrollViewer)updates.Content).Content;
                 Check(updatePanel.Children.OfType<TextBlock>().Any(x => x.Text.Contains("0.9.0")), "Update window clearly displays current and available versions");
                 Check(updatePanel.Children.OfType<Button>().Any(x => (string)x.Content == "Tải và cập nhật" && x.IsEnabled), "Update action is available after a release is found");
@@ -308,7 +310,7 @@ try
                 Check(unlockField.BorderBrush == System.Windows.Media.Brushes.Firebrick && unlockField.BorderThickness.Left == 2, "Missing OAuth password highlights its input with a red border before any network request");
                 var header = ((Grid)cloudWindow.Content).Children.OfType<StackPanel>().First();
                 var banner = header.Children.OfType<Border>().Single();
-                Check(((TextBlock)banner.Child).Foreground == System.Windows.Media.Brushes.DarkRed, "Password error is also shown prominently in the top status banner");
+                Check(((TextBlock)banner.Child).Foreground == DriveLink.Ui.Theme.Danger, "Password error is also shown prominently in the top status banner");
                 if (args.Contains("--export-previews"))
                 {
                     var previewDir = Path.Combine(AppContext.BaseDirectory, "login-previews"); Directory.CreateDirectory(previewDir);
@@ -372,10 +374,12 @@ try
                     var login = new LoginStatusWindow(() => { });
                     var didClose = false; login.Closed += (_, _) => didClose = true;
                     login.Show();
+                    if (success) LayoutChecks.Snapshot(login, "login-waiting.png");
                     Check(((TextBlock)login.FindName("StateTitle")).Text.Contains("Đang chờ"), "Small login window starts in waiting state");
                     var watch = Stopwatch.StartNew();
                     var completion = login.CompleteAsync(success, "Kết quả kiểm tra, không đăng nhập Google thật.");
                     var title = ((TextBlock)login.FindName("StateTitle")).Text;
+                    LayoutChecks.Snapshot(login, success ? "login-success.png" : "login-failed.png");
                     Check(title.Contains(success ? "✓ Đăng nhập thành công" : "! Đăng nhập không thành công"), "Small login window shows the correct result");
                     await completion;
                     Check(didClose && watch.Elapsed.TotalSeconds >= 2.8 && watch.Elapsed.TotalSeconds < 7, "Login result window closes automatically after 3 seconds");

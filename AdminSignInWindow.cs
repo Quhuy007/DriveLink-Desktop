@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using DriveLink.Services;
+using DriveLink.Ui;
 namespace DriveLink;
 
 public sealed class AdminSignInWindow : Window
@@ -18,11 +19,11 @@ public sealed class AdminSignInWindow : Window
     public AdminSignInWindow(Func<SupabaseConfigService> createService)
     {
         this.createService = createService;
-        Title = "Mở quản trị — DriveLink · Quang Huy"; Icon = AppBrand.Icon; Width = 460;
+        Theme.Apply(this); Title = "Mở quản trị — DriveLink · Quang Huy"; Icon = AppBrand.Icon; Width = 460;
         SizeToContent = SizeToContent.Height; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var panel = new StackPanel { Margin = new(24) };
         panel.Children.Add(new TextBlock { Text = "Mật khẩu quản trị", FontSize = 23, FontWeight = FontWeights.SemiBold });
-        panel.Children.Add(new TextBlock { Text = "Nhập mật khẩu quản trị để mở giao diện. Tài khoản quản trị đã được thiết lập sẵn.", TextWrapping = TextWrapping.Wrap, Margin = new(0, 12, 0, 14), Foreground = Brushes.SlateGray });
+        panel.Children.Add(new TextBlock { Text = "Nhập mật khẩu quản trị để mở giao diện. Tài khoản quản trị đã được thiết lập sẵn.", TextWrapping = TextWrapping.Wrap, Margin = new(0, 12, 0, 14), Foreground = Theme.Muted });
         PasswordFeedback.Add(panel, password); submit.Style = (Style)FindResource("Primary"); submit.Margin = new(0, 14, 0, 0); panel.Children.Add(submit); panel.Children.Add(status);
         Content = panel; Loaded += (_, _) => password.Focus();
         submit.Click += async (_, _) => await SubmitAsync();
@@ -33,7 +34,7 @@ public sealed class AdminSignInWindow : Window
     {
         if (busy) return;
         if (!PasswordFeedback.Required(password, "Nhập mật khẩu quản trị.")) return;
-        busy = true; submit.IsEnabled = password.IsEnabled = false; status.Foreground = Brushes.Black; status.Text = "Đang xác thực quản trị…";
+        busy = true; submit.IsEnabled = password.IsEnabled = false; status.Foreground = Theme.Ink; status.Text = "Đang xác thực quản trị…";
         var secret = password.Password; password.Clear();
         try
         {

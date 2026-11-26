@@ -14,7 +14,7 @@ static class LayoutChecks
 {
     public static async Task Run(Action<bool, string> check, SecureStore store, string root)
     {
-        var output = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../artifacts/ui-v1.0.0")); Directory.CreateDirectory(output);
+        var output = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../artifacts/ui-v" + AppBrand.Version)); Directory.CreateDirectory(output);
         foreach (var (width, height, zoom) in new[] { (1366d, 738d, 1d), (1092d, 590d, .8d), (1092d, 590d, 1.5d), (1092d, 590d, .6d) })
         {
             var state = new SavedState { Accounts = [new Account { Id = "fixture", Email = "quanghuy.demo@example.com" }], Settings = new() { UiScale = zoom } };
@@ -61,11 +61,30 @@ static class LayoutChecks
         share.UpdateLayout(); Save(share, Path.Combine(output, "sharing.png")); share.Close();
         var details = new FileDetailsWindow(new() { Name = "Bản thiết kế dự án.pdf", MimeType = "application/pdf", Size = 1234567, Owners = [new() { Email = "owner@example.com" }], ContentRestrictions = [new() { ReadOnly = true, Reason = "Đã hoàn thiện" }] }) { WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000, Top = -10000, ShowInTaskbar = false };
         details.Show(); details.UpdateLayout(); Save(details, Path.Combine(output, "details.png")); details.Close();
+        var message = new GlassMessageWindow("Google không cho cấp quyền xem tạm cho tệp này. DriveLink có thể tải tệp về máy rồi tải lên tài khoản đích. Tiếp tục?", "Gửi chéo qua máy", MessageBoxButton.YesNo, MessageBoxImage.Question) { WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000, Top = -10000, ShowInTaskbar = false };
+        message.Show(); message.UpdateLayout(); Save(message, Path.Combine(output, "message.png"));
+        check(message.Result == MessageBoxResult.No, "Closing the glass message box without choosing keeps the safe answer"); message.Close();
+        var sampleMenu = new ContextMenu();
+        foreach (var label in new[] { "Đổi tên", "Tải xuống", "Tạo bản sao" }) sampleMenu.Items.Add(new MenuItem { Header = label });
+        var shareMenu = new MenuItem { Header = "Chia sẻ" }; shareMenu.Items.Add(new MenuItem { Header = "Chia sẻ…" }); sampleMenu.Items.Add(shareMenu);
+        sampleMenu.Items.Add(new MenuItem { Header = "Tài khoản đang dùng", IsCheckable = true, IsChecked = true });
+        sampleMenu.Items.Add(new Separator()); sampleMenu.Items.Add(new MenuItem { Header = "Chuyển vào thùng rác", IsEnabled = false });
+        sampleMenu.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity)); sampleMenu.Arrange(new Rect(sampleMenu.DesiredSize)); sampleMenu.UpdateLayout();
+        SaveVisual(sampleMenu, (int)sampleMenu.ActualWidth, (int)sampleMenu.ActualHeight, Path.Combine(output, "context-menu.png"));
+        File.WriteAllText(Path.Combine(output, "oauth-success.html"), OAuthResultPage.Render(true, "Tài khoản minh.hoa@example.com đã được liên kết. Bạn có thể bắt đầu gửi và nhận file trong ứng dụng."));
+        File.WriteAllText(Path.Combine(output, "oauth-failed.html"), OAuthResultPage.Render(false, "Yêu cầu đã bị hủy hoặc quá thời gian chờ. Bạn có thể thử lại trong ứng dụng."));
         Console.WriteLine("UI previews: " + output);
     }
-    private static void Save(Window window, string path)
+    /// <summary>Lưu ảnh một cửa sổ vào thư mục ảnh giao diện của phiên bản hiện tại.</summary>
+    public static void Snapshot(Window window, string name)
     {
-        var image = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32); image.Render(window);
+        window.UpdateLayout();
+        Save(window, Path.Combine(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../artifacts/ui-v" + AppBrand.Version)), name));
+    }
+    private static void Save(Window window, string path) => SaveVisual(window, (int)window.ActualWidth, (int)window.ActualHeight, path);
+    private static void SaveVisual(Visual visual, int width, int height, string path)
+    {
+        var image = new RenderTargetBitmap(Math.Max(1, width), Math.Max(1, height), 96, 96, PixelFormats.Pbgra32); image.Render(visual);
         var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(image)); using var stream = File.Create(path); encoder.Save(stream);
     }
 }

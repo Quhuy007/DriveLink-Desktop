@@ -25,6 +25,11 @@ $sourceNames += @('AdminSignInWindow.cs')
 $sourceNames += @('global.json','GITHUB-RELEASES.md','scripts\Publish-Portable.ps1','.github\workflows\release.yml','.gitignore')
 $sourceNames += @('UpdateWindow.cs','tests\UpdateChecks.cs','.config\dotnet-tools.json','scripts\Build-UpdateRelease.ps1','RELEASE-NOTES.md')
 $sourceNames += @('UiPresentation.cs','FileWindows.cs','tests\FileActionChecks.cs','tests\LayoutChecks.cs')
+$sourceNames += @('tests\CrossCopyChecks.cs','GlassMessageBox.cs')
+foreach ($folder in @('Ui','Preview')) {
+ $folderPath = Join-Path $projectRoot $folder
+ if (Test-Path -LiteralPath $folderPath) { $sourceNames += Get-ChildItem -LiteralPath $folderPath -File | ForEach-Object { "$folder\$($_.Name)" } }
+}
 Add-Type -AssemblyName System.IO.Compression
 $archivePath = Join-Path $releasePath "source-v$Version.zip"
 $archive = [System.IO.Compression.ZipFile]::Open($archivePath, [System.IO.Compression.ZipArchiveMode]::Create)

@@ -2,7 +2,7 @@
 
 Repository công khai: [Quhuy007/DriveLink-Desktop](https://github.com/Quhuy007/DriveLink-Desktop). Tải Setup Windows x64 từ Releases không cần đăng nhập GitHub. Cài một lần để bật cập nhật trong app; bộ cài có sẵn .NET. Xem [GITHUB-RELEASES.md](GITHUB-RELEASES.md) về tải trên máy mới và phát hành tự động bằng tag/Actions.
 
-Ứng dụng của **Quang Huy**. Bản hiện tại: **1.0.0**. Các bản chạy được giữ riêng trong `versions`, dùng chung kết nối tài khoản đã lưu trên máy.
+Ứng dụng của **Quang Huy**. Bản hiện tại: **1.1.1**. Các bản chạy được giữ riêng trong `versions`, dùng chung kết nối tài khoản đã lưu trên máy.
 
 **Cài đặt → Tài khoản Google → Cloud lấy OAuth**: kết nối mặc định có sẵn. Nhập mật khẩu OAuth rồi tải/mở khóa và Lưu cài đặt, không đăng nhập reader. Ctrl+Shift+A mở hộp mật khẩu admin, xác thực đúng mới mở quản trị/lịch sử. Thiếu/sai mật khẩu có khung đỏ và thông báo nổi bật. Xem [CLOUD-OAUTH.md](CLOUD-OAUTH.md) để nâng cấp Cloud hiện có. Chưa chạy nâng cấp SQL hoặc kiểm tra đăng nhập trên project thật trong quá trình phát triển; kiểm tra app sử dụng phản hồi mô phỏng. Google token chỉ lưu trên từng máy.
 
@@ -17,8 +17,20 @@ Repository công khai: [Quhuy007/DriveLink-Desktop](https://github.com/Quhuy007/
 - `versions/v0.7.2/DriveLink.exe`: chỉ hỏi mật khẩu quản trị, dùng admin mặc định còn lại.
 - `versions/v0.8.0/DriveLink.exe`: kiểm tra cập nhật, tải/cài có tiến độ, chờ gửi/nhận và bộ cài Velopack. Dùng Setup từ Release để bật cập nhật trong app.
 - `versions/v1.0.0/DriveLink.exe`: giao diện gọn, thu phóng, menu thao tác file và chia sẻ mới. Bản đã cài 0.8.0 có thể cập nhật trong app.
+- `versions/v1.1.0/DriveLink.exe`: giao diện kính nền tối bố cục Bento, gửi chéo tài khoản trên máy chủ Google, thẻ dung lượng và biểu đồ tốc độ. Bản đã cài 0.8.0/1.0.0 có thể cập nhật trong app.
+- `versions/v1.1.1/DriveLink.exe`: mọi cửa sổ phụ, hộp thông báo, menu chuột phải và trang kết quả đăng nhập dùng cùng giao diện kính tối; thanh tiêu đề tối trên Windows 11. Bản đã cài 0.8.0/1.0.0 có thể cập nhật trong app.
 - Mỗi bản có ZIP mã nguồn để phục hồi. Bản mới có `release.json` ghi phiên bản và SHA-256.
-- Tạo phiên bản tiếp theo: chạy `scripts/Build-Release.ps1 -Version 1.0.1`. Script từ chối ghi đè phiên bản đã tồn tại. Các bản framework-dependent cần .NET Desktop Runtime 10 và toàn bộ tệp trong thư mục bản đó.
+- Tạo phiên bản tiếp theo: chạy `scripts/Build-Release.ps1 -Version 1.1.2`. Script từ chối ghi đè phiên bản đã tồn tại. Các bản framework-dependent cần .NET Desktop Runtime 10 và toàn bộ tệp trong thư mục bản đó.
+
+## Giao diện 1.1.0 và Gửi chéo
+
+Từ 1.1.1, các cửa sổ phụ (Cài đặt, Cập nhật, Chia sẻ, Thông tin, Thành viên, Cloud OAuth, Mở quản trị, Đăng nhập Google), hộp thông báo và menu chuột phải dùng chung kiểu kính tối định nghĩa trong `App.xaml`; màu dùng trong code nằm ở `Ui/Theme.cs`. Hộp thông báo của Windows được thay bằng hộp thoại kính (`GlassMessageBox.cs`); đóng bằng X chọn phương án an toàn. Trang kết quả đăng nhập trên trình duyệt cũng dùng nền tối và thẻ kính. Menu ở khay hệ thống vẫn là menu Windows mặc định.
+
+Giao diện kính trên nền tối, bố cục Bento một màn: danh sách tệp là thẻ chính; cột phải có Gửi tệp, Truyền tải, Không gian, Gửi chéo và Dung lượng. Cửa sổ rộng hiện hai cột thẻ; cửa sổ vừa hiện một cột và ẩn Gửi chéo/Dung lượng; cửa sổ hẹp thu gọn thanh trên. Thanh trên là vùng kéo cửa sổ, có nút thu nhỏ/phóng to/đóng riêng. Chuyển động tắt theo cài đặt giảm hiệu ứng của Windows và nền chỉ chạy khi cửa sổ đang được dùng.
+
+Gửi chéo sao chép một tệp sang Drive của tôi của tài khoản Google khác đã thêm vào DriveLink. Nếu tài khoản đích đã xem được tệp, Google sao chép thẳng. Nếu chưa, app cấp quyền xem tạm (không gửi thư) cho đúng email đích, để tài khoản đích sao chép trên máy chủ, rồi thu hồi quyền trong mọi trường hợp. Bản sao được đối chiếu MD5/kích thước. Khi Google từ chối chia sẻ (thường do chính sách tổ chức), app hỏi trước khi tải tệp về thư mục tạm `%LOCALAPPDATA%\DriveLink\Relay` rồi tải lên tài khoản đích; thư mục tạm được xóa sau đó. Chưa hỗ trợ thư mục; tài liệu Google chỉ sao chép được trên máy chủ. Nếu không thu hồi được quyền tạm, app cảnh báo để gỡ thủ công trong Chia sẻ.
+
+Bản dựng thử chỉ dùng dữ liệu minh họa: `DriveLink.exe --ui-preview` (giao diện tối) và `DriveLink.exe --ui-preview-glass` (kính + Bento).
 
 ## Giao diện 1.0.0
 

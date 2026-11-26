@@ -1,3 +1,26 @@
+# v1.1.1
+
+DriveLink 1.1.1 — Quang Huy
+
+- Mọi cửa sổ phụ dùng giao diện kính tối như cửa sổ chính: Cài đặt (tab viên thuốc, ô tích và thanh trượt mới), Cập nhật, Chia sẻ, Thông tin, Thành viên, Cloud OAuth, Mở quản trị, Đặt tên và Đăng nhập Google. Thanh tiêu đề của các cửa sổ này chuyển tối trên Windows 11.
+- Hộp thông báo/xác nhận của Windows được thay bằng hộp thoại kính có biểu tượng theo loại và nút "Có/Không" tiếng Việt; đóng bằng X chọn phương án an toàn. Ctrl+C chép nội dung thông báo.
+- Menu chuột phải, menu con, chú thích và danh sách thả xuống dùng nền kính tối.
+- Trang kết quả đăng nhập trên trình duyệt chuyển sang nền tối, thẻ kính và nhãn trạng thái phát sáng.
+- Sửa hướng dẫn cũ trong Cài đặt: nút thu phóng nằm ở thanh trên cùng.
+- Bộ kiểm tra tự chụp ảnh các cửa sổ phụ, hộp thoại, menu và trang đăng nhập vào artifacts/ui-v[phiên bản].
+
+# v1.1.0
+
+DriveLink 1.1.0 — Quang Huy
+
+- Giao diện kính trên nền tối, bố cục Bento một màn: danh sách tệp là thẻ chính; cột widget gồm Gửi tệp, Truyền tải, Không gian, Gửi chéo và Dung lượng. Thanh trên nổi có tài khoản, tìm kiếm, thu phóng và nút cửa sổ tự vẽ; dock bên trái cho bộ lọc tệp, cài đặt và cập nhật.
+- Bố cục tự co giãn: cửa sổ rộng hai cột widget, vừa một cột, hẹp thì thanh trên và tiêu đề tự thu gọn để nút đóng cửa sổ luôn hiện.
+- Gửi chéo tài khoản: Google sao chép tệp trên máy chủ sang Drive của tài khoản Google khác đã thêm vào DriveLink, không tốn băng thông máy. Quyền xem tạm chỉ cấp cho đúng email đích, không gửi thư, và luôn được thu hồi kể cả khi lỗi hoặc hủy. Bản sao được đối chiếu MD5/kích thước. Khi Google chặn chia sẻ, app hỏi trước khi tải qua máy. Chưa hỗ trợ thư mục.
+- Widget Dung lượng đọc dung lượng thật của tài khoản đang chọn; hiển thị TB cho tài khoản lớn.
+- Truyền tải hiển thị tốc độ tải lên/tải về và biểu đồ theo thời gian thực; biểu tượng màu theo loại tệp trong danh sách.
+- Chuyển động và tương tác nhỏ: thẻ xuất hiện so le, nổi nhẹ khi rê chuột, thẻ Gửi tệp sáng lên khi kéo tệp, thông báo dạng "đảo" khi gửi/nhận/gửi chéo xong. Nền chuyển động chỉ chạy khi cửa sổ đang dùng (15 khung hình/giây) và tự tắt khi Windows bật giảm hiệu ứng.
+- Lỗi Google Drive mang mã HTTP để phân biệt "chưa thấy tệp" và "bị chặn chia sẻ". Bản dựng thử giao diện mở bằng tham số --ui-preview và --ui-preview-glass.
+
 # v1.0.0
 
 DriveLink 1.0.0 — Quang Huy

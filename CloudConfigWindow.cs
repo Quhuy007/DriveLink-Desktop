@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
 using DriveLink.Services;
+using DriveLink.Ui;
 namespace DriveLink;
 
 public sealed class CloudConfigWindow : Window
@@ -33,9 +34,9 @@ public sealed class CloudConfigWindow : Window
     {
         this.state = state; this.apply = apply;
         createService = serviceFactory ?? (() => new SupabaseConfigService(CloudDefaults.Read() ?? SupabaseConfigService.ValidateConnection(state.Cloud.ProjectUrl, state.Cloud.PublishableKey)));
-        Title = "Cloud lấy OAuth — DriveLink · Quang Huy"; Icon = AppBrand.Icon;
+        Theme.Apply(this); Title = "Cloud lấy OAuth — DriveLink · Quang Huy"; Icon = AppBrand.Icon;
         Width = 780; Height = Math.Min(850, SystemParameters.WorkArea.Height); MinWidth = 620; MinHeight = Math.Min(600, Height);
-        WindowStartupLocation = WindowStartupLocation.CenterOwner; Background = new SolidColorBrush(Color.FromRgb(245, 247, 251));
+        WindowStartupLocation = WindowStartupLocation.CenterOwner; Background = Theme.WindowBackground;
         var root = new Grid { Margin = new(22) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); root.RowDefinitions.Add(new RowDefinition()); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var header = new StackPanel();
@@ -100,11 +101,11 @@ public sealed class CloudConfigWindow : Window
     private void SetStatus(string message, bool error = false)
     {
         status.Text = (error ? "⚠ " : "● ") + message;
-        status.Foreground = error ? Brushes.DarkRed : Brushes.DarkBlue;
-        statusCard.Background = new SolidColorBrush(error ? Color.FromRgb(255, 228, 230) : Color.FromRgb(231, 240, 255));
-        statusCard.BorderBrush = error ? Brushes.Firebrick : Brushes.CornflowerBlue;
+        status.Foreground = error ? Theme.Danger : Theme.Info;
+        statusCard.Background = (error ? Theme.DangerSoft : Theme.InfoSoft);
+        statusCard.BorderBrush = error ? Brushes.Firebrick : Theme.InfoBorder;
     }
-    private static TextBlock Hint(string text, Thickness margin) => new() { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = margin };
+    private static TextBlock Hint(string text, Thickness margin) => new() { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted, Margin = margin };
     private static TabItem Tab(string title, UIElement content) => new() { Header = title, Content = new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } };
     private static Button Button(string text, RoutedEventHandler handler) { var button = new Button { Content = text, Margin = new(0, 8, 0, 0) }; button.Click += handler; return button; }
     private void UpdateControls()

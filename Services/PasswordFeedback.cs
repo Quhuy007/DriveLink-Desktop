@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Markup;
+using DriveLink.Ui;
 namespace DriveLink.Services;
 
 public static class PasswordFeedback
@@ -10,14 +11,14 @@ public static class PasswordFeedback
     private static readonly ConditionalWeakTable<PasswordBox, TextBlock> errors = new();
     public static void Add(Panel panel, PasswordBox field)
     {
-        field.Padding = new(12, 9, 12, 9); field.BorderThickness = new(1); field.BorderBrush = Brushes.SlateGray;
+        field.Padding = new(12, 9, 12, 9); field.BorderThickness = new(1); field.BorderBrush = Theme.FieldBorder;
         // Keep the validation border visible even while the password input has focus.
         field.Template = (ControlTemplate)XamlReader.Parse("""
             <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                              TargetType="{x:Type PasswordBox}">
                 <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                        BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                        BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10">
                     <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" Focusable="False" />
                 </Border>
             </ControlTemplate>
@@ -29,12 +30,12 @@ public static class PasswordFeedback
     }
     public static void Clear(PasswordBox field)
     {
-        field.BorderBrush = Brushes.SlateGray; field.BorderThickness = new(1); field.Background = Brushes.White;
+        field.BorderBrush = Theme.FieldBorder; field.BorderThickness = new(1); field.Background = Theme.Field;
         if (errors.TryGetValue(field, out var error)) { error.Text = ""; error.Visibility = Visibility.Collapsed; }
     }
     public static void Invalid(PasswordBox field, string message)
     {
-        field.BorderBrush = Brushes.Firebrick; field.BorderThickness = new(2); field.Background = new SolidColorBrush(Color.FromRgb(255, 241, 242));
+        field.BorderBrush = Brushes.Firebrick; field.BorderThickness = new(2); field.Background = Theme.DangerSoft;
         if (errors.TryGetValue(field, out var error)) { error.Text = "⚠ " + message; error.Visibility = Visibility.Visible; }
         field.Focus();
     }

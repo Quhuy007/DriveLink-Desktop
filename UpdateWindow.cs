@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using DriveLink.Services;
+using DriveLink.Ui;
 namespace DriveLink;
 
 public sealed class UpdateWindow : Window
@@ -24,7 +25,7 @@ public sealed class UpdateWindow : Window
     public UpdateWindow(AppUpdateFlow flow, Func<bool> prepare, Action restore)
     {
         this.flow = flow; this.prepare = prepare; this.restore = restore;
-        Title = "Cập nhật DriveLink — Quang Huy"; Icon = AppBrand.Icon; Width = 650; Height = Math.Min(660, SystemParameters.WorkArea.Height);
+        Theme.Apply(this); Title = "Cập nhật DriveLink — Quang Huy"; Icon = AppBrand.Icon; Width = 650; Height = Math.Min(660, SystemParameters.WorkArea.Height);
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var panel = new StackPanel { Margin = new(26) };
         panel.Children.Add(new TextBlock { Text = "Cập nhật DriveLink", FontSize = 26, FontWeight = FontWeights.SemiBold });
@@ -37,7 +38,7 @@ public sealed class UpdateWindow : Window
         var release = new Button { Content = "Mở trang phát hành", Margin = new(0, 10, 0, 0) };
         release.Click += (_, _) => { try { Process.Start(new ProcessStartInfo(VelopackUpdateBackend.ReleasesUrl) { UseShellExecute = true }); } catch { status.Text = "Chưa mở được trình duyệt. Xem trang Releases của DriveLink trên GitHub."; } };
         panel.Children.Add(release);
-        panel.Children.Add(new TextBlock { Text = "Khi cài, app sẽ chờ truyền file hoàn tất rồi khởi động lại. Tài khoản, cấu hình OAuth và cài đặt đã lưu được giữ tại vị trí hiện có. Không tự cập nhật cơ sở dữ liệu Cloud.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new(0, 16, 0, 0) });
+        panel.Children.Add(new TextBlock { Text = "Khi cài, app sẽ chờ truyền file hoàn tất rồi khởi động lại. Tài khoản, cấu hình OAuth và cài đặt đã lưu được giữ tại vị trí hiện có. Không tự cập nhật cơ sở dữ liệu Cloud.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted, Margin = new(0, 16, 0, 0) });
         Content = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         flow.Changed += OnChanged;
         idle.Tick += (_, _) => TryInstall();
@@ -52,8 +53,8 @@ public sealed class UpdateWindow : Window
         if (closed) return;
         version.Text = $"Đang dùng: {AppBrand.Version}" + (flow.Available is { } update ? $"   →   Bản mới: {update.Version}" : "");
         status.Text = (flow.HasError ? "⚠ " : "● ") + flow.Message;
-        status.Foreground = flow.HasError ? Brushes.DarkRed : Brushes.DarkBlue;
-        card.Background = new SolidColorBrush(flow.HasError ? Color.FromRgb(255, 228, 230) : Color.FromRgb(231, 240, 255));
+        status.Foreground = flow.HasError ? Theme.Danger : Theme.Info;
+        card.Background = (flow.HasError ? Theme.DangerSoft : Theme.InfoSoft);
         notes.Text = flow.Available?.Notes ?? "";
         progress.Value = flow.Progress; progress.Visibility = flow.Busy || flow.Ready ? Visibility.Visible : Visibility.Collapsed;
         progress.IsIndeterminate = flow.Busy && flow.Available is null;
