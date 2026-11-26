@@ -84,6 +84,24 @@ Trước khi tải về, hoặc trước khi mở thư mục chứa một tệp 
 
 `%LOCALAPPDATA%\DriveLink\security-log.jsonl`, mở bằng Cài đặt → Tài khoản Google → **Mở nhật ký bảo mật**. Mỗi dòng một sự kiện: cấp hoặc thu hồi quyền tạm, đổi cấu hình OAuth, cài cập nhật, bản cập nhật bị chặn, bảo vệ và thu hồi token, xóa tài khoản, sai mật khẩu và đăng nhập quản trị, khóa máy, bật hoặc tắt liên kết công khai, cảnh báo tệp chạy được. Nhật ký **không bao giờ** ghi token, mật khẩu hay email đầy đủ (email được che). Khi vượt 1 MB, tệp cũ được đổi tên thành `.1`.
 
+## 9. Mã hóa đầu cuối (tùy chọn, từ 1.3.0)
+
+- Bật cho từng không gian: chuột phải không gian → **Mã hóa đầu cuối**. Mọi thành viên nhập **cùng một mật khẩu** trên máy của họ và so **mã kiểm tra** (ví dụ `1A2B-3C4D-5E6F`) để chắc đã nhập giống nhau.
+- Khóa không gian = PBKDF2-SHA256 (600.000 vòng, muối từ mã thư mục không gian). Khóa này lưu mã hóa DPAPI trong `e2e-keys.dat`; mật khẩu không được lưu.
+- Mỗi tệp có khóa riêng (HKDF) và được mã hóa AES-256-GCM theo khối 1 MB. Số thứ tự khối và cờ "khối cuối" được xác thực, nên sửa, cắt hay đảo dữ liệu đều bị phát hiện. Google chỉ nhận tệp `.dlenc`.
+- Giới hạn: tên tệp, kích thước gần đúng, thời gian và người gửi vẫn thấy được trên Drive. Mất mật khẩu thì không mở được tệp đã mã hóa; không có cách khôi phục.
+
+## 10. Truyền thẳng trong LAN (tùy chọn, mặc định tắt)
+
+- Khi bật, app gửi gói UDP quảng bá trên cổng 47210 (chỉ mã thiết bị, tên máy, cổng) và nhận kết nối TCP trên cổng 47211. Windows có thể hỏi về tường lửa: chỉ cho phép **Mạng riêng**.
+- Mỗi máy có khóa ECDSA P-256 riêng (DPAPI). **Ghép nối** hiện cùng một mã 6 số trên hai máy, tính từ phần bắt tay đã ký. Chỉ bấm Có khi hai mã trùng nhau và chính bạn vừa bấm Ghép nối trên máy kia; nhờ vậy kẻ chen giữa không ghép nối được.
+- Chỉ máy đã ghép nối mới gửi/nhận được. Kênh truyền dùng ECDH tạm thời + AES-256-GCM, mỗi tệp được kiểm SHA-256 trước khi lưu vào `Hộp thư đến\LAN`. Bỏ ghép nối trong cửa sổ Thiết bị LAN.
+
+## 11. Tự tải tệp mới
+
+- Tệp chạy được (.exe, .ps1, .lnk…) và tệp vượt giới hạn dung lượng **không** tự tải, chỉ báo. Tệp mã hóa đầu cuối chỉ tự tải khi máy đã có khóa của không gian.
+- Tệp tự tải nằm riêng trong `Downloads\DriveLink - Hộp thư đến\<không gian>`, không bao giờ ghi đè tệp có sẵn. Tắt tự tải trong Cài đặt nếu không cần.
+
 ## Quy trình phát hành (thay cho phát hành tự động)
 
 ```powershell

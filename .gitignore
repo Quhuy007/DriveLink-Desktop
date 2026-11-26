@@ -17,3 +17,6 @@ artifacts/
 *.key
 .env
 .env.*
+node_modules/
+.cloudflare/
+*.secrets.json

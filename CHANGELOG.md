@@ -1,3 +1,21 @@
+# v1.3.0
+
+DriveLink 1.3.0 — Quang Huy · Truyền tải, thông báo, mã hóa đầu cuối, LAN, giao diện sáng và chế độ nhẹ
+
+- Truyền tải bền hơn: mạng chập chờn thì tự thử lại khoảng 2 phút (chỉ với lỗi mạng, hết thời gian chờ, 429, 5xx). Gửi tiếp đúng từ chỗ Google đã nhận, nhận tiếp bằng Range, đối chiếu MD5 trước khi thay tệp đích. Tắt app giữa chừng thì lần mở sau hỏi để tiếp tục.
+- Gửi/nhận 2–6 tệp song song, tự điều chỉnh theo tốc độ mạng. Chọn nhiều tệp để tải về một lần.
+- Màn Hàng đợi & Hoạt động: từng lượt đang chạy/đang chờ (hủy riêng từng lượt) và nhật ký 300 lượt gần nhất (mã hóa trên máy), có nút mở thư mục.
+- Tệp mới hiện gần như ngay lập tức (nguồn thay đổi của Drive, vài giây một lần, ở mọi tài khoản). Thông báo Windows, tự tải vào Downloads\DriveLink - Hộp thư đến\<không gian> (trừ tệp chạy được và tệp vượt giới hạn). Tệp ghi tên máy gửi; máy nhận ghi dấu "đã nhận" để người gửi thấy số máy đã nhận.
+- Gửi chéo nhiều tệp và cả thư mục (giữ cấu trúc), chọn nơi nhận: Drive của tôi hoặc một không gian của tài khoản đích. Thư mục chỉ cần một quyền xem tạm trên thư mục gốc, thu hồi khi xong.
+- Gửi nguyên cây thư mục (tùy chọn trong Cài đặt → Nén thư mục), thay cho nén thành một tệp.
+- Mã hóa đầu cuối tùy chọn theo không gian: mật khẩu không gian dùng chung giữa các thành viên, AES-256-GCM theo khối, Google chỉ nhận bản mã (.dlenc). Có mã kiểm tra để các thành viên so với nhau.
+- Truyền thẳng trong mạng LAN: tự tìm máy DriveLink cùng mạng, ghép nối bằng mã 6 số, gửi tệp trực tiếp có mã hóa và kiểm SHA-256. Mặc định tắt.
+- Giao diện sáng (Cài đặt → Màu giao diện). Menu khay hệ thống kiểu tối, có mục Hàng đợi & Hoạt động.
+- Chế độ nhẹ cho máy ít RAM (tự bật khi máy có từ 4 GB RAM trở xuống): vẽ bằng CPU, không nạp trình điều khiển đồ họa, tắt hiệu ứng mờ và chuyển động, trả bộ nhớ cho Windows khi ẩn vào khay. Đo trên cửa sổ chính: bộ nhớ riêng khoảng 87 MB (đầy đủ khoảng 167 MB), đỉnh lúc mở khoảng 186 MB.
+- Bộ cài nhỏ hơn: app không kèm .NET (Setup tự cài .NET Desktop Runtime 10 nếu máy chưa có). Gói cập nhật 87 MB → 11 MB, Setup 95 MB → 18,5 MB. Bản cập nhật kế tiếp có gói delta (khoảng 0,5 MB từ 1.2.0).
+- Thư mục dự án là git repo, nối với lịch sử phát hành trên GitHub.
+- Thêm 57 kiểm thử (tổng 352).
+
 # v1.2.0
 
 DriveLink 1.2.0 — Quang Huy · Bảo mật

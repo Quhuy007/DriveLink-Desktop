@@ -138,3 +138,4 @@ grant execute on function public.drivelink_publish_locked_config(text,text,text,
 grant execute on function public.drivelink_activate_config(uuid,uuid) to authenticated;
 commit;
 notify pgrst, 'reload schema';
+-- Hết tệp upgrade-1.2.0.sql. Nếu SQL Editor báo lỗi ở dòng cuối, có thể bạn chưa chép hết tệp: dùng Ctrl+A rồi Ctrl+C.

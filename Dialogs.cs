@@ -46,10 +46,23 @@ public class SettingsWindow : Window
         var opacityLabel = new TextBlock { Text = $"Độ đậm nền: {opacity.Value:0}% (100% = không trong suốt)", Foreground = Theme.Muted };
         opacity.ValueChanged += (_, _) => opacityLabel.Text = $"Độ đậm nền: {opacity.Value:0}% (100% = không trong suốt)";
         var background = new CheckBox { Content = "Thu nhỏ/đóng cửa sổ vào khay hệ thống và chạy nền", IsChecked = state.Settings.RunInBackground, Margin = new(0, 24, 0, 12) };
+        var performanceKeys = new[] { Ui.PerformanceMode.Auto, Ui.PerformanceMode.Lite, Ui.PerformanceMode.Full };
+        var performance = new ComboBox { ItemsSource = new[] { "Tự động — nhẹ khi máy có từ 4 GB RAM trở xuống", "Nhẹ — ít RAM, không hiệu ứng mờ và chuyển động", "Đầy đủ — giao diện kính và hiệu ứng động" }, SelectedIndex = Math.Max(0, Array.IndexOf(performanceKeys, state.Settings.Performance)), Margin = new(0, 10, 0, 8) };
+        var theme = new ComboBox { ItemsSource = new[] { "Tối — nền kính tối (mặc định)", "Sáng — nền sáng, chữ tối" }, SelectedIndex = state.Settings.Theme == Ui.ThemeChoice.Light ? 1 : 0, Margin = new(0, 10, 0, 8) };
+        var notifyNew = new CheckBox { Content = "Báo bằng thông báo Windows khi có tệp mới từ người khác", IsChecked = state.Settings.NotifyNewFiles, Margin = new(0, 10, 0, 6) };
+        var autoInbox = new CheckBox { Content = "Tự tải tệp mới vào thư mục Hộp thư đến", IsChecked = state.Settings.AutoDownloadInbox, Margin = new(0, 6, 0, 6) };
+        var inboxFolder = new TextBox { Text = state.Settings.ResolveInboxFolder(), IsReadOnly = true, Margin = new(0, 4, 8, 0) };
+        var browseInbox = new Button { Content = "Đổi…", Margin = new(0, 4, 0, 0), Padding = new(12, 4, 12, 4) };
+        browseInbox.Click += (_, _) => { var picker = new Microsoft.Win32.OpenFolderDialog { Title = "Chọn thư mục Hộp thư đến" }; if (picker.ShowDialog(this) == true) inboxFolder.Text = picker.FolderName; };
+        var inboxRow = new DockPanel();
+        DockPanel.SetDock(browseInbox, Dock.Right); inboxRow.Children.Add(browseInbox); inboxRow.Children.Add(inboxFolder);
+        var limitValues = new[] { 100, 500, 1024, 5120, 0 };
+        var autoLimit = new ComboBox { ItemsSource = new[] { "Tệp đến 100 MB", "Tệp đến 500 MB", "Tệp đến 1 GB", "Tệp đến 5 GB", "Không giới hạn" }, SelectedIndex = Math.Max(0, Array.IndexOf(limitValues, state.Settings.AutoDownloadMaxMb)), Margin = new(0, 8, 0, 6) };
         var startup = new CheckBox { Content = "Chạy khi đăng nhập Windows", IsChecked = StartupRegistration.IsEnabled(), Margin = new(0, 12, 0, 12) };
         var format = new ComboBox { ItemsSource = new[] { "ZIP — mặc định, dễ mở trên máy nhận", "RAR — cần WinRAR để tạo" }, SelectedIndex = state.Settings.ArchiveFormat == "rar" ? 1 : 0, Margin = new(0, 10, 0, 20) };
         var toolKeys = new[] { "auto", "7zip", "winrar", "builtin" };
         var tool = new ComboBox { ItemsSource = new[] { "Tự động: 7-Zip → WinRAR → ZIP tích hợp", "7-Zip (ZIP)", "WinRAR (ZIP/RAR)", "ZIP tích hợp (không cần công cụ ngoài)" }, SelectedIndex = Math.Max(0, Array.IndexOf(toolKeys, state.Settings.CompressionTool)), Margin = new(0, 10, 0, 20) };
+        var treeMode = new ComboBox { ItemsSource = new[] { "Nén thành một tệp rồi gửi (mặc định)", "Gửi nguyên cây thư mục (giữ cấu trúc, gửi từng tệp song song)" }, SelectedIndex = state.Settings.FolderUploadMode == "tree" ? 1 : 0, Margin = new(0, 10, 0, 16) };
         var strong = new CheckBox { Content = "Ưu tiên dung lượng nhỏ hơn (nén mạnh, mất thời gian hơn)", IsChecked = state.Settings.HighCompression, Margin = new(0, 0, 0, 16) };
         var stack = new StackPanel { Margin = new(26) };
         stack.Children.Add(new TextBlock { Text = "Kết nối Google của bạn", FontSize = 24, FontWeight = FontWeights.SemiBold });
@@ -82,7 +95,7 @@ public class SettingsWindow : Window
         {
             try
             {
-                var nextSettings = new UserSettings { UiScale = automaticScale.IsChecked == true ? 0 : uiScale.Value / 100, CheckUpdatesOnStartup = autoUpdates.IsChecked == true, ShowDropOverlay = showOverlay.IsChecked == true, DropOverlayOpacity = opacity.Value / 100, RunInBackground = background.IsChecked == true, StartWithWindows = startup.IsChecked == true, ArchiveFormat = format.SelectedIndex == 1 ? "rar" : "zip", CompressionTool = toolKeys[tool.SelectedIndex], HighCompression = strong.IsChecked == true };
+                var nextSettings = new UserSettings { UiScale = automaticScale.IsChecked == true ? 0 : uiScale.Value / 100, CheckUpdatesOnStartup = autoUpdates.IsChecked == true, ShowDropOverlay = showOverlay.IsChecked == true, DropOverlayOpacity = opacity.Value / 100, RunInBackground = background.IsChecked == true, Performance = performanceKeys[Math.Max(0, performance.SelectedIndex)], Theme = theme.SelectedIndex == 1 ? Ui.ThemeChoice.Light : Ui.ThemeChoice.Dark, NotifyNewFiles = notifyNew.IsChecked == true, AutoDownloadInbox = autoInbox.IsChecked == true, AutoDownloadMaxMb = limitValues[Math.Max(0, autoLimit.SelectedIndex)], FolderUploadMode = treeMode.SelectedIndex == 1 ? "tree" : "zip", InboxFolder = inboxFolder.Text == new UserSettings().ResolveInboxFolder() ? "" : inboxFolder.Text, StartWithWindows = startup.IsChecked == true, ArchiveFormat = format.SelectedIndex == 1 ? "rar" : "zip", CompressionTool = toolKeys[tool.SelectedIndex], HighCompression = strong.IsChecked == true };
                 if (nextSettings.ArchiveFormat == "rar" && (!installed.CanCreateRar || nextSettings.CompressionTool is "7zip" or "builtin")) throw new InvalidOperationException("RAR cần WinRAR đã cài và công cụ Tự động hoặc WinRAR. Chọn ZIP nếu muốn dùng công cụ khác.");
                 var previousConfig = state.Config; var previousSettings = state.Settings; var previousAccounts = state.Accounts.ToList(); var previousSelected = state.SelectedAccountId;
                 var previousRevision = state.Cloud.LastAppliedRevision;
@@ -157,6 +170,15 @@ public class SettingsWindow : Window
         general.Children.Add(new TextBlock { Text = "Ctrl + cuộn chuột hoặc Ctrl + / − để thu phóng; Ctrl + 0 về tự động. Nút thu phóng nằm ở thanh trên cùng.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted, Margin = new(0, 8, 0, 12) });
         general.Children.Add(showOverlay); general.Children.Add(opacityLabel); general.Children.Add(opacity);
         general.Children.Add(new TextBlock { Text = "Điều chỉnh lớp phủ khi kéo thả; file vẫn gửi được khi tắt lớp thông báo.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted });
+        general.Children.Add(new TextBlock { Text = "Tệp mới từ người khác", FontWeight = FontWeights.SemiBold, Margin = new(0, 24, 0, 0) });
+        general.Children.Add(notifyNew); general.Children.Add(autoInbox); general.Children.Add(inboxRow); general.Children.Add(autoLimit);
+        general.Children.Add(new TextBlock { Text = "App kiểm tra tệp mới vài giây một lần ở mọi tài khoản. Tệp chạy được (.exe, .ps1…) và tệp vượt giới hạn không tự tải, chỉ báo. Tải xong, app ghi dấu \"đã nhận\" lên tệp (khi có quyền sửa) để người gửi biết.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted });
+        general.Children.Add(new TextBlock { Text = "Màu giao diện", FontWeight = FontWeights.SemiBold, Margin = new(0, 24, 0, 0) });
+        general.Children.Add(theme);
+        general.Children.Add(new TextBlock { Text = "Áp dụng cho mọi cửa sổ sau khi mở lại app. Menu khay hệ thống luôn dùng kiểu tối.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted });
+        general.Children.Add(new TextBlock { Text = "Hiệu năng", FontWeight = FontWeights.SemiBold, Margin = new(0, 24, 0, 0) });
+        general.Children.Add(performance);
+        general.Children.Add(new TextBlock { Text = $"Chế độ nhẹ giữ nguyên bố cục và chức năng, chỉ tắt hiệu ứng để chạy mượt trên máy ít RAM, và trả bộ nhớ cho Windows khi app ẩn vào khay. Áp dụng sau khi mở lại app. Đang dùng: {(Ui.PerformanceMode.IsLite ? "nhẹ" : "đầy đủ")}.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted });
         general.Children.Add(background); general.Children.Add(new TextBlock { Text = "Bật: nút thu nhỏ hoặc X sẽ ẩn app vào khay hệ thống cạnh đồng hồ; truyền file và cập nhật tiếp tục. Nhấp đúp icon để mở lại; chuột phải → Thoát hoàn toàn để tắt app.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted });
         general.Children.Add(startup); general.Children.Add(new TextBlock { Text = "Đăng ký cho người dùng Windows hiện tại. Nếu bật cả chạy nền, app khởi động trong khay hệ thống. Windows có thể trì hoãn tác vụ khởi động.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted });
         var restore = new Button { Content = "Hiện lại các không gian đã ẩn trên máy", Margin = new(0, 24, 0, 12) };
@@ -165,8 +187,9 @@ public class SettingsWindow : Window
         general.Children.Add(new TextBlock { Text = "Màu và ghim được lưu riêng trên máy này. Chuột phải lên không gian để đánh dấu, ghim, ẩn hoặc đưa vào Thùng rác Drive.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted });
         var compression = new StackPanel { Margin = new(24) };
         compression.Children.Add(new TextBlock { Text = "Gửi cả thư mục", FontSize = 24, FontWeight = FontWeights.SemiBold });
-        compression.Children.Add(new TextBlock { Text = "Thả thư mục vào app hoặc bấm Chọn thư mục. Ứng dụng nén trước, rồi gửi một file đóng gói; thư mục gốc được giữ nguyên.", TextWrapping = TextWrapping.Wrap, Margin = new(0, 16, 0, 20) });
-        compression.Children.Add(new TextBlock { Text = "Định dạng" }); compression.Children.Add(format);
+        compression.Children.Add(new TextBlock { Text = "Thả thư mục vào app hoặc bấm Chọn thư mục. Mặc định app nén thành một tệp rồi gửi; cũng có thể gửi nguyên cây thư mục để người nhận thấy đúng cấu trúc trên Drive. Thư mục gốc trên máy luôn được giữ nguyên.", TextWrapping = TextWrapping.Wrap, Margin = new(0, 16, 0, 20) });
+        compression.Children.Add(new TextBlock { Text = "Cách gửi thư mục" }); compression.Children.Add(treeMode);
+        compression.Children.Add(new TextBlock { Text = "Định dạng nén" }); compression.Children.Add(format);
         compression.Children.Add(new TextBlock { Text = "Công cụ nén" }); compression.Children.Add(tool); compression.Children.Add(strong);
         compression.Children.Add(new TextBlock { Text = installed.Summary, Foreground = Theme.Muted, Margin = new(0, 0, 0, 16) });
         compression.Children.Add(new TextBlock { Text = "ZIP dễ trao đổi; RAR có thể nén tốt hơn, nhất là nhiều file tương tự. Ảnh/video/file đã nén thường giảm ít. Nén mạnh cần thêm thời gian và RAM. ZIP luôn có phương án tích hợp nếu chưa cài công cụ ngoài. Không tự cài hoặc tải phần mềm nén.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted });

@@ -6,43 +6,8 @@
   <FontFamily x:Key="GlMonoFont">Cascadia Mono, Consolas</FontFamily>
   <FontFamily x:Key="GlDisplayFont">Segoe UI Variable Display, Segoe UI</FontFamily>
 
-  <SolidColorBrush x:Key="GlBase" Color="#070A12"/>
-  <SolidColorBrush x:Key="GlInk" Color="#F2F5FB"/>
-  <SolidColorBrush x:Key="GlMuted" Color="#A6B0C4"/>
-  <SolidColorBrush x:Key="GlFaint" Color="#717B93"/>
-  <SolidColorBrush x:Key="GlAccent" Color="#5B8CFF"/>
-  <SolidColorBrush x:Key="GlViolet" Color="#A78BFA"/>
-  <SolidColorBrush x:Key="GlTeal" Color="#2DD4BF"/>
-  <SolidColorBrush x:Key="GlGreen" Color="#4ADE80"/>
-  <SolidColorBrush x:Key="GlAmber" Color="#FBBF24"/>
-  <SolidColorBrush x:Key="GlRose" Color="#FB7185"/>
-  <SolidColorBrush x:Key="GlTint" Color="#990A0F1C"/>
-  <SolidColorBrush x:Key="GlLine" Color="#1FFFFFFF"/>
 
-  <LinearGradientBrush x:Key="GlFill" StartPoint="0,0" EndPoint="1,1">
-    <GradientStop Color="#22FFFFFF" Offset="0"/>
-    <GradientStop Color="#0AFFFFFF" Offset="0.55"/>
-    <GradientStop Color="#12FFFFFF" Offset="1"/>
-  </LinearGradientBrush>
   <!-- Viền sáng phản chiếu: sáng ở góc trên trái và góc dưới phải như mép kính. -->
-  <LinearGradientBrush x:Key="GlRim" StartPoint="0,0" EndPoint="1,1">
-    <GradientStop Color="#80FFFFFF" Offset="0"/>
-    <GradientStop Color="#1AFFFFFF" Offset="0.35"/>
-    <GradientStop Color="#0AFFFFFF" Offset="0.65"/>
-    <GradientStop Color="#45FFFFFF" Offset="1"/>
-  </LinearGradientBrush>
-  <LinearGradientBrush x:Key="GlSheen" StartPoint="0,0" EndPoint="0,1">
-    <GradientStop Color="#16FFFFFF" Offset="0"/>
-    <GradientStop Color="#00FFFFFF" Offset="0.45"/>
-  </LinearGradientBrush>
-  <LinearGradientBrush x:Key="GlPanelFill" StartPoint="0,0" EndPoint="0,1">
-    <GradientStop Color="#C0171E30" Offset="0"/>
-    <GradientStop Color="#A80E1422" Offset="1"/>
-  </LinearGradientBrush>
-  <LinearGradientBrush x:Key="GlAccentFill" StartPoint="0,0" EndPoint="1,1">
-    <GradientStop Color="#6A98FF" Offset="0"/>
-    <GradientStop Color="#8B5CF6" Offset="1"/>
-  </LinearGradientBrush>
   <BooleanToVisibilityConverter x:Key="GlBoolToVis"/>
 
   <Style TargetType="TextBlock">
@@ -74,7 +39,7 @@
       <Setter.Value>
         <ControlTemplate TargetType="local:GlassCard">
           <Grid>
-            <Border Margin="8,16,8,-8" CornerRadius="26" Background="#66000000" IsHitTestVisible="False">
+            <Border Margin="8,16,8,-8" CornerRadius="26" Background="{StaticResource P_66000000}" IsHitTestVisible="False">
               <Border.Effect><BlurEffect Radius="28" RenderingBias="Performance"/></Border.Effect>
             </Border>
             <Border x:Name="Glow" Margin="-2" CornerRadius="28" BorderThickness="3" BorderBrush="{StaticResource GlAccent}" Opacity="0" IsHitTestVisible="False">
@@ -105,23 +70,23 @@
     <Setter Property="CornerRadius" Value="26"/>
   </Style>
   <Style x:Key="GlChip" TargetType="Border">
-    <Setter Property="Background" Value="#12FFFFFF"/>
-    <Setter Property="BorderBrush" Value="#1FFFFFFF"/>
+    <Setter Property="Background" Value="{StaticResource P_12FFFFFF}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource P_1FFFFFFF}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="CornerRadius" Value="13"/>
     <Setter Property="Padding" Value="10,4"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
   </Style>
   <Style x:Key="GlTile" TargetType="Border">
-    <Setter Property="Background" Value="#0AFFFFFF"/>
-    <Setter Property="BorderBrush" Value="#14FFFFFF"/>
+    <Setter Property="Background" Value="{StaticResource P_0AFFFFFF}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource P_14FFFFFF}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="CornerRadius" Value="16"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Style.Triggers>
       <Trigger Property="IsMouseOver" Value="True">
-        <Setter Property="Background" Value="#1CFFFFFF"/>
-        <Setter Property="BorderBrush" Value="#38FFFFFF"/>
+        <Setter Property="Background" Value="{StaticResource P_1CFFFFFF}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource P_38FFFFFF}"/>
       </Trigger>
     </Style.Triggers>
   </Style>
@@ -130,15 +95,15 @@
     <Setter Property="CornerRadius" Value="12"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Style.Triggers>
-      <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#14FFFFFF"/></Trigger>
+      <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{StaticResource P_14FFFFFF}"/></Trigger>
     </Style.Triggers>
   </Style>
 
   <!-- Nút viên thuốc bằng kính: sáng lên khi rê chuột, lún nhẹ khi bấm rồi nảy lại. -->
   <Style x:Key="GlButton" TargetType="Button">
     <Setter Property="Foreground" Value="{StaticResource GlInk}"/>
-    <Setter Property="Background" Value="#14FFFFFF"/>
-    <Setter Property="BorderBrush" Value="#2EFFFFFF"/>
+    <Setter Property="Background" Value="{StaticResource P_14FFFFFF}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource P_2EFFFFFF}"/>
     <Setter Property="Padding" Value="16,0"/>
     <Setter Property="Height" Value="38"/>
     <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
@@ -151,7 +116,7 @@
             <Grid.RenderTransform><ScaleTransform x:Name="Press"/></Grid.RenderTransform>
             <Border CornerRadius="19" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"/>
             <Border CornerRadius="19" Background="{StaticResource GlSheen}" IsHitTestVisible="False"/>
-            <Border x:Name="Hover" CornerRadius="19" Background="White" Opacity="0" IsHitTestVisible="False"/>
+            <Border x:Name="Hover" CornerRadius="19" Background="{StaticResource GlHover}" Opacity="0" IsHitTestVisible="False"/>
             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Grid>
           <ControlTemplate.Triggers>
@@ -177,9 +142,9 @@
   </Style>
   <Style x:Key="GlPrimaryButton" TargetType="Button" BasedOn="{StaticResource GlButton}">
     <Setter Property="Background" Value="{StaticResource GlAccentFill}"/>
-    <Setter Property="BorderBrush" Value="#66FFFFFF"/>
+    <Setter Property="BorderBrush" Value="{StaticResource P_66FFFFFF}"/>
     <Setter Property="Foreground" Value="White"/>
-    <Setter Property="Effect"><Setter.Value><DropShadowEffect Color="#5B8CFF" BlurRadius="22" ShadowDepth="0" Opacity="0.5"/></Setter.Value></Setter>
+    <Setter Property="Effect"><Setter.Value><DropShadowEffect Color="{StaticResource PC_FF5B8CFF}" BlurRadius="22" ShadowDepth="0" Opacity="0.5"/></Setter.Value></Setter>
   </Style>
 
   <Style x:Key="GlRound" TargetType="Button">
@@ -197,7 +162,7 @@
             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Grid>
           <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#1AFFFFFF"/><Setter Property="Foreground" Value="{StaticResource GlInk}"/></Trigger>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{StaticResource P_1AFFFFFF}"/><Setter Property="Foreground" Value="{StaticResource GlInk}"/></Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -212,7 +177,7 @@
             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Grid>
           <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#E5484D"/><Setter Property="Foreground" Value="White"/></Trigger>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{StaticResource P_FFE5484D}"/><Setter Property="Foreground" Value="White"/></Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -254,7 +219,7 @@
         <ControlTemplate TargetType="RadioButton">
           <Grid x:Name="Root" Background="Transparent" RenderTransformOrigin="0.5,0.5">
             <Grid.RenderTransform><ScaleTransform x:Name="Zoom"/></Grid.RenderTransform>
-            <Border x:Name="Hover" CornerRadius="14" Background="White" Opacity="0"/>
+            <Border x:Name="Hover" CornerRadius="14" Background="{StaticResource GlHover}" Opacity="0"/>
             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Grid>
           <ControlTemplate.Triggers>
@@ -271,7 +236,7 @@
                 <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.3"/>
               </Storyboard></BeginStoryboard></Trigger.ExitActions>
             </Trigger>
-            <Trigger Property="IsChecked" Value="True"><Setter Property="Foreground" Value="White"/></Trigger>
+            <Trigger Property="IsChecked" Value="True"><Setter Property="Foreground" Value="{StaticResource GlDockSelected}"/></Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -280,7 +245,7 @@
 
   <Style x:Key="GlProgress" TargetType="ProgressBar">
     <Setter Property="Height" Value="5"/>
-    <Setter Property="Background" Value="#1AFFFFFF"/>
+    <Setter Property="Background" Value="{StaticResource P_1AFFFFFF}"/>
     <Setter Property="Foreground" Value="{StaticResource GlAccent}"/>
     <Setter Property="Template">
       <Setter.Value>
@@ -333,8 +298,8 @@
             <ContentPresenter VerticalAlignment="Center"/>
           </Border>
           <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#14FFFFFF"/></Trigger>
-            <Trigger Property="IsSelected" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#335B8CFF"/></Trigger>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{StaticResource P_14FFFFFF}"/></Trigger>
+            <Trigger Property="IsSelected" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{StaticResource P_335B8CFF}"/></Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -345,7 +310,7 @@
   <Style x:Key="GlThumb" TargetType="Thumb">
     <Setter Property="Template">
       <Setter.Value>
-        <ControlTemplate TargetType="Thumb"><Border Background="#38FFFFFF" CornerRadius="3"/></ControlTemplate>
+        <ControlTemplate TargetType="Thumb"><Border Background="{StaticResource P_38FFFFFF}" CornerRadius="3"/></ControlTemplate>
       </Setter.Value>
     </Setter>
   </Style>

@@ -3,7 +3,7 @@ namespace DriveLink.Services;
 
 public sealed partial class DriveService
 {
-    private const string FileFields = "id,name,mimeType,size,md5Checksum,permissions(type,role),createdTime,modifiedTime,description,writersCanShare,copyRequiresWriterPermission,webViewLink,owners(displayName,emailAddress,me),capabilities(canTrash,canRename,canCopy,canShare,canDownload,canChangeCopyRequiresWriterPermission,canModifyContentRestriction,canModifyEditorContentRestriction,canRemoveContentRestriction),contentRestrictions(readOnly,reason,ownerRestricted)";
+    private const string FileFields = "id,name,mimeType,size,md5Checksum,appProperties,parents,permissions(type,role),createdTime,modifiedTime,description,writersCanShare,copyRequiresWriterPermission,webViewLink,owners(displayName,emailAddress,me),capabilities(canTrash,canRename,canCopy,canShare,canDownload,canChangeCopyRequiresWriterPermission,canModifyContentRestriction,canModifyEditorContentRestriction,canRemoveContentRestriction),contentRestrictions(readOnly,reason,ownerRestricted)";
     public async Task<DriveItem> GetFileAsync(Account account, string id, CancellationToken ct)
     {
         using var request = await RequestAsync(account, HttpMethod.Get, Api + $"files/{Uri.EscapeDataString(id)}?supportsAllDrives=true&fields={FileFields}", ct);

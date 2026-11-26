@@ -1,8 +1,8 @@
 # DriveLink
 
-Repository công khai: [Quhuy007/DriveLink-Desktop](https://github.com/Quhuy007/DriveLink-Desktop). Tải Setup Windows x64 từ Releases không cần đăng nhập GitHub. Cài một lần để bật cập nhật trong app; bộ cài có sẵn .NET. Xem [GITHUB-RELEASES.md](GITHUB-RELEASES.md) về tải trên máy mới và phát hành bản đã ký, và [SECURITY.md](SECURITY.md) về các lớp bảo mật.
+Repository công khai: [Quhuy007/DriveLink-Desktop](https://github.com/Quhuy007/DriveLink-Desktop). Tải Setup Windows x64 từ Releases không cần đăng nhập GitHub. Cài một lần để bật cập nhật trong app; Setup tự cài .NET Desktop Runtime 10 nếu máy chưa có. Xem [GITHUB-RELEASES.md](GITHUB-RELEASES.md) về tải trên máy mới và phát hành bản đã ký, và [SECURITY.md](SECURITY.md) về các lớp bảo mật.
 
-Ứng dụng của **Quang Huy**. Bản hiện tại: **1.2.0**. Các bản chạy được giữ riêng trong `versions`, dùng chung kết nối tài khoản đã lưu trên máy.
+Ứng dụng của **Quang Huy**. Bản hiện tại: **1.3.0**. Các bản chạy được giữ riêng trong `versions`, dùng chung kết nối tài khoản đã lưu trên máy.
 
 **Cài đặt → Tài khoản Google → Cloud lấy OAuth**: kết nối mặc định có sẵn. Nhập mật khẩu OAuth rồi tải/mở khóa và Lưu cài đặt, không đăng nhập reader. Ctrl+Shift+A mở hộp mật khẩu admin, xác thực đúng mới mở quản trị/lịch sử. Thiếu/sai mật khẩu có khung đỏ và thông báo nổi bật. Xem [CLOUD-OAUTH.md](CLOUD-OAUTH.md) để nâng cấp Cloud hiện có. Chưa chạy nâng cấp SQL hoặc kiểm tra đăng nhập trên project thật trong quá trình phát triển; kiểm tra app sử dụng phản hồi mô phỏng. Google token chỉ lưu trên từng máy.
 
@@ -21,8 +21,18 @@ Repository công khai: [Quhuy007/DriveLink-Desktop](https://github.com/Quhuy007/
 - `versions/v1.1.1/DriveLink.exe`: mọi cửa sổ phụ, hộp thông báo, menu chuột phải và trang kết quả đăng nhập dùng cùng giao diện kính tối; thanh tiêu đề tối trên Windows 11. Bản đã cài 0.8.0/1.0.0 có thể cập nhật trong app.
 - `versions/v1.1.2/DriveLink.exe`: báo rõ khi bấm Tải về/Mở trên Drive mà chưa chọn tệp; giữ tệp đang chọn sau khi đóng Cài đặt. Bản đã cài 0.8.0/1.0.0 có thể cập nhật trong app.
 - `versions/v1.2.0/DriveLink.exe`: bản cập nhật có chữ ký số, token Google bảo vệ bằng Windows Hello, tự thu hồi quyền tạm còn sót, giới hạn số lần nhập mật khẩu quản trị, cảnh báo tệp công khai và tệp chạy được, nhật ký bảo mật. Cần Windows 10 1809 trở lên.
+- `versions/v1.3.0/DriveLink.exe`: tự thử lại và gửi/nhận tiếp sau khi tắt app, truyền song song, Hàng đợi & Hoạt động, tệp mới tức thì + Hộp thư đến, gửi chéo thư mục, mã hóa đầu cuối, truyền thẳng LAN, giao diện sáng, chế độ nhẹ cho máy ít RAM. Cần .NET Desktop Runtime 10 (Setup tự cài).
 - Mỗi bản có ZIP mã nguồn để phục hồi. Bản mới có `release.json` ghi phiên bản và SHA-256.
-- Tạo phiên bản tiếp theo: chạy `scripts/Build-Release.ps1 -Version 1.2.1`. Script từ chối ghi đè phiên bản đã tồn tại. Các bản framework-dependent cần .NET Desktop Runtime 10 và toàn bộ tệp trong thư mục bản đó.
+- Tạo phiên bản tiếp theo: chạy `scripts/Build-Release.ps1 -Version 1.3.1`. Script từ chối ghi đè phiên bản đã tồn tại. Các bản framework-dependent cần .NET Desktop Runtime 10 và toàn bộ tệp trong thư mục bản đó.
+
+## Tính năng 1.3.0
+
+- **Truyền tải bền và nhanh hơn:** tự thử lại khi mạng chập chờn, gửi/nhận tiếp sau khi tắt app (`Services/DriveTransfers.cs`), 2–6 tệp song song tự điều chỉnh (`Services/TransferLane.cs`, `Services/TransferCenter.cs`). Nút danh sách ở thanh bên mở **Hàng đợi & Hoạt động**.
+- **Tệp mới tức thì:** `Services/InboxWatcher.cs` đọc nguồn thay đổi của Drive vài giây một lần. App báo bằng thông báo Windows và tự tải vào `Downloads\DriveLink - Hộp thư đến` (Cài đặt → Giao diện & hệ thống → Tệp mới từ người khác). Danh sách tệp hiện tên máy gửi và số máy đã nhận.
+- **Gửi chéo thư mục và nhiều tệp**, chọn nơi nhận (`Services/CrossBatch.cs`, `CrossDestinationWindow.cs`). **Gửi nguyên cây thư mục** chọn trong Cài đặt → Nén thư mục.
+- **Mã hóa đầu cuối** theo không gian: chuột phải không gian → Mã hóa đầu cuối (`Services/E2eCrypto.cs`, `E2eWindow.cs`).
+- **Truyền thẳng trong LAN:** nút mạng ở thanh bên (`Services/Lan`, `LanWindow.cs`).
+- **Giao diện sáng/tối** (`Ui/Palette.*.xaml`, `Ui/ThemeChoice.cs`) và **chế độ nhẹ** cho máy ít RAM (`Ui/PerformanceMode.cs`). Đo RAM bằng `DriveLink.exe --ui-preview-main --lite`; xem giao diện sáng bằng `--light`.
 
 ## Bảo mật 1.2.0
 
@@ -141,8 +151,8 @@ Testing với quyền Drive thường làm refresh token hết hạn sau 7 ngày
 - Chỉ xem file con trực tiếp của thư mục không gian. Chưa duyệt thư mục lồng nhau, tải cả thư mục hoặc xuất Google Docs/Sheets/Slides. Dùng **Mở trên Drive** cho các mục này.
 - Chỉ cấp reader/writer trên thư mục, chưa chỉnh quyền riêng từng file, quyền commenter, quyền hết hạn hoặc link công khai. Mời lại cùng email không phải luồng đổi quyền; quản lý thay đổi trên Google Drive trong bản này.
 - Thu hồi quyền thư mục không tự thu hồi quyền riêng đã cấp trên từng file, không xóa file của thành viên và không xóa bản đã tải về.
-- Resumable upload dùng chia khối trong một lần chạy; chưa tự phục hồi sau lỗi mạng hay sau đóng app. Nếu trạng thái gửi không chắc chắn, làm mới/kiểm tra Drive trước khi gửi lại để tránh bản trùng. Hủy một chiều sẽ bỏ cả các file đang chờ của chiều đó; file đã gửi/tải xong được giữ nguyên.
-- Tự cập nhật khi app đang chạy, gồm cả khi ẩn trong khay hệ thống. Chưa có push notification, tự tải xuống hay xác nhận người nhận đã tải. Máy tắt/ngủ hoặc mất mạng thì không truyền/nhận file.
+- Gửi/nhận tự thử lại khoảng 2 phút khi mạng chập chờn và tiếp tục được sau khi tắt app (phiên tải lên của Google có hiệu lực khoảng 1 tuần). Thư mục gửi dạng nén hoặc tệp mã hóa đầu cuối thì được nén/mã hóa lại và gửi từ đầu. Hủy một chiều sẽ bỏ cả các file đang chờ của chiều đó; file đã gửi/tải xong được giữ nguyên.
+- Tự cập nhật khi app đang chạy, gồm cả khi ẩn trong khay hệ thống. Tệp mới được phát hiện bằng cách hỏi Google vài giây một lần (không phải push); dấu "đã nhận" chỉ ghi được khi máy nhận có quyền sửa tệp. Máy tắt/ngủ hoặc mất mạng thì không truyền/nhận file.
 - “Thu hồi quyền và xóa tài khoản khỏi máy này” gọi Google thu hồi token rồi mới xóa khỏi máy. Nếu không có mạng, thu hồi tại https://myaccount.google.com/connections . Không app nào phát hiện chắc chắn việc một phần mềm khác đọc tệp; SECURITY.md giải thích cách token được tách khóa và bảo vệ bằng Windows Hello.
 - Bộ cài chưa được ký mã Windows (Authenticode), nên Windows có thể cảnh báo về nhà phát hành; riêng bản cập nhật được ký bằng khóa riêng của chủ ứng dụng. Chưa có đánh giá bảo mật độc lập. Chưa thể xác nhận tích hợp Google đầu cuối khi chưa có OAuth Client và hai tài khoản thực.
 

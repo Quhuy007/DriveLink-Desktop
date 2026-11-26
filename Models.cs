@@ -54,6 +54,23 @@ public sealed class UserSettings
     public bool HighCompression { get; set; }
     public bool RunInBackground { get; set; }
     public bool StartWithWindows { get; set; }
+    /// <summary>auto (nhẹ khi máy ≤ 4 GB RAM), lite hoặc full.</summary>
+    public string Performance { get; set; } = "auto";
+    /// <summary>dark hoặc light.</summary>
+    public string Theme { get; set; } = "dark";
+    /// <summary>Báo bằng thông báo Windows khi có tệp mới từ người khác.</summary>
+    public bool NotifyNewFiles { get; set; } = true;
+    /// <summary>Tự tải tệp mới vào thư mục Hộp thư đến (trừ tệp chạy được và tệp quá lớn).</summary>
+    public bool AutoDownloadInbox { get; set; } = true;
+    /// <summary>Giới hạn tự tải, MB; 0 = không giới hạn.</summary>
+    public int AutoDownloadMaxMb { get; set; } = 1024;
+    /// <summary>Rỗng = Downloads\DriveLink - Hộp thư đến.</summary>
+    public string InboxFolder { get; set; } = "";
+    /// <summary>Gửi thư mục: zip (nén thành một tệp) hoặc tree (giữ nguyên cây thư mục trên Drive).</summary>
+    public string FolderUploadMode { get; set; } = "zip";
+    /// <summary>Truyền thẳng trong mạng LAN (mặc định tắt: chỉ mở cổng khi người dùng bật).</summary>
+    public bool LanEnabled { get; set; }
+    public string ResolveInboxFolder() => InboxFolder.Length > 0 ? InboxFolder : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "DriveLink - Hộp thư đến");
 }
 public sealed class SpacePreference
 {
@@ -111,9 +128,23 @@ public sealed class DriveItem
     [JsonPropertyName("permissions")] public List<DrivePermission>? Permissions { get; set; }
     public bool IsPublic => Permissions?.Any(x => x.Type == "anyone") == true;
     public bool IsMine => Owners.Any(x => x.Me);
+    /// <summary>Thuộc tính riêng của DriveLink trên tệp: tên máy gửi (dlSenderMachine) và các máy đã nhận (dlRcv_…).</summary>
+    [JsonPropertyName("appProperties")] public Dictionary<string, string>? AppProperties { get; set; }
+    [JsonPropertyName("parents")] public List<string>? Parents { get; set; }
+    [JsonPropertyName("trashed")] public bool Trashed { get; set; }
+    public string SenderMachine => AppProperties?.GetValueOrDefault("dlSenderMachine") ?? "";
+    /// <summary>Tệp đã mã hóa đầu cuối bởi DriveLink (đuôi .dlenc); cần khóa của không gian ghi trong dlE2eSpace để mở.</summary>
+    public bool IsEncrypted => AppProperties?.GetValueOrDefault("dlE2e") == "1" || Name.EndsWith(Services.E2eCrypto.Extension, StringComparison.OrdinalIgnoreCase);
+    public string E2eSpace => AppProperties?.GetValueOrDefault("dlE2eSpace") ?? Parents?.FirstOrDefault() ?? "";
+    /// <summary>Tên tệp sau khi giải mã (bỏ đuôi .dlenc).</summary>
+    public string PlainName => Name.EndsWith(Services.E2eCrypto.Extension, StringComparison.OrdinalIgnoreCase) ? Name[..^Services.E2eCrypto.Extension.Length] : Name;
+    public int ReceivedCount => AppProperties?.Keys.Count(k => k.StartsWith(Services.ReceiptMarks.Prefix, StringComparison.Ordinal)) ?? 0;
+    public bool ReceivedHere => AppProperties?.ContainsKey(Services.ReceiptMarks.ThisMachineKey) == true;
+    /// <summary>Dòng phụ dưới tên tệp: loại tệp · máy gửi · số máy đã nhận.</summary>
+    public string DetailLabel => (IsEncrypted ? (Path.GetExtension(PlainName).TrimStart('.').ToUpperInvariant() is { Length: > 0 } e ? e + " · mã hóa đầu cuối" : "Mã hóa đầu cuối") : Kind) + (SenderMachine.Length > 0 ? " · từ máy " + SenderMachine : "") + (ReceivedCount > 0 ? $" · {ReceivedCount} máy đã nhận" : "");
     public string OwnerEmail => Owners.FirstOrDefault()?.Email ?? "";
     public string OwnerLabel => OwnerEmail.Length == 0 ? "Không xác định" : DisplayPrivacy.MaskEmail(OwnerEmail);
-    public string NameLabel => IsLocked ? "🔒 " + Name : Name;
+    public string NameLabel => (IsLocked ? "🔒 " : "") + (IsEncrypted ? "🔐 " + PlainName : Name);
     public string SizeLabel => FormatSize(Size);
     public string TimeLabel => CreatedAt == default ? "Chưa có thông tin" : CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
     public string Kind => MimeType == "application/vnd.google-apps.folder" ? "THƯ MỤC" : Path.GetExtension(Name).TrimStart('.').ToUpperInvariant() is { Length: > 0 } ext ? ext : "FILE";

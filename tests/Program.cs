@@ -68,7 +68,7 @@ try
         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
     })))
     {
-        var service = new DriveService(http, (_, _) => Task.FromResult("token"));
+        var service = new DriveService(http, (_, _) => Task.FromResult("token")) { Delay = (_, _) => Task.CompletedTask };
         try { await service.DownloadAsync(account, new DriveItem { Id = "f", MimeType = "text/plain" }, target, CancellationToken.None); throw new Exception("Expected truncated download error"); }
         catch (IOException) { }
         Check(await File.ReadAllTextAsync(target) == "original", "Truncated response cannot replace an existing file");
@@ -118,9 +118,9 @@ try
         return Task.FromResult(partial);
     })))
     {
-        try { await new DriveService(http, (_, _) => Task.FromResult("token")).UploadAsync(account, "folder", upload, new Progress<TransferProgress>(), CancellationToken.None); throw new Exception("Expected partial acknowledgment error"); }
+        try { await new DriveService(http, (_, _) => Task.FromResult("token")) { Delay = (_, _) => Task.CompletedTask }.UploadAsync(account, "folder", upload, new Progress<TransferProgress>(), CancellationToken.None); throw new Exception("Expected partial acknowledgment error"); }
         catch (InvalidOperationException) { }
-        Check(attempts == 1, "Partial upload acknowledgment stops without sending a wrong next chunk or retrying writes");
+        Check(attempts == 4, "Upload resends from Google's confirmed offset and stops when Google keeps confirming no new data");
     }
     var zero = Path.Combine(root, "empty.txt"); File.WriteAllBytes(zero, []);
     using (var http = new HttpClient(new FakeHandler(request =>
@@ -266,21 +266,32 @@ try
     }
     try { await ShellFileNavigator.OpenContainingFolderAsync(Path.Combine(root, "nonexistent.txt")); throw new Exception("Expected missing file"); } catch (FileNotFoundException) { Check(true, "Folder navigation detects missing files off the UI thread"); }
     var uiDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    const long GB = 1024L * 1024 * 1024;
+    Check(DriveLink.Ui.PerformanceMode.Resolve("auto", 4 * GB) && DriveLink.Ui.PerformanceMode.Resolve("auto", 3 * GB) && !DriveLink.Ui.PerformanceMode.Resolve("auto", 8 * GB)
+        && DriveLink.Ui.PerformanceMode.Resolve("lite", 64 * GB) && !DriveLink.Ui.PerformanceMode.Resolve("full", 2 * GB) && !DriveLink.Ui.PerformanceMode.Resolve("auto", 0)
+        && new UserSettings().Performance == "auto", "Light mode is automatic on machines with 4 GB RAM or less and can be forced on or off");
     await CloudChecks.Run(Check, store);
     await FileActionChecks.Run(Check);
     await CrossCopyChecks.Run(Check);
+    await TransferChecks.Run(Check, root, account);
+    await InboxChecks.Run(Check, root);
+    await CrossBatchChecks.Run(Check, root);
+    await E2eChecks.Run(Check, root);
+    await LanChecks.Run(Check, root);
     await SecurityChecks.Run(Check, root);
     await UpdateChecks.Run(Check, store);
     var uiThread = new Thread(() =>
     {
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        // DRIVELINK_THEME=light: chụp ảnh giao diện sáng (ảnh lưu đè vào cùng thư mục artifacts/ui-v…).
+        if (Environment.GetEnvironmentVariable("DRIVELINK_THEME") == "light") DriveLink.Ui.ThemeChoice.Set(true);
         var resourceSource = System.Xml.Linq.XDocument.Load(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "App.xaml")));
         System.Xml.Linq.XNamespace wpfNamespace = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
         var resourceRoot = new System.Xml.Linq.XElement(wpfNamespace + "ResourceDictionary",
             new System.Xml.Linq.XAttribute(System.Xml.Linq.XNamespace.Xmlns + "x", "http://schemas.microsoft.com/winfx/2006/xaml"),
             new System.Xml.Linq.XAttribute(System.Xml.Linq.XNamespace.Xmlns + "local", "clr-namespace:DriveLink;assembly=DriveLink"),
-            resourceSource.Root!.Element(wpfNamespace + "Application.Resources")!.Elements());
-        app.Resources = (ResourceDictionary)System.Windows.Markup.XamlReader.Parse(resourceRoot.ToString());
+            resourceSource.Root!.Element(wpfNamespace + "Application.Resources")!.Element(wpfNamespace + "ResourceDictionary")!.Elements());
+        app.Resources = (ResourceDictionary)System.Windows.Markup.XamlReader.Parse(resourceRoot.ToString().Replace("\"clr-namespace:DriveLink\"", "\"clr-namespace:DriveLink;assembly=DriveLink\""));
         Dispatcher.CurrentDispatcher.BeginInvoke(async () =>
         {
             try
@@ -296,6 +307,14 @@ try
                 await updateFlow.CheckAsync(CancellationToken.None);
                 var updates = new UpdateWindow(updateFlow, () => false, () => { }) { WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000, Top = -10000, ShowInTaskbar = false };
                 updates.Show(); updates.UpdateLayout(); LayoutChecks.Snapshot(updates, "update.png");
+                {
+                    var queueFolder = Path.Combine(root, "queue-ui"); Directory.CreateDirectory(queueFolder);
+                    var queueCenter = new TransferCenter(new DriveService(new HttpClient(new FakeHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)))), (_, _) => Task.FromResult("t")), new FolderCompressor(), () => new UserSettings(), queueFolder);
+                    var queueView = new QueueWindow(queueCenter) { WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000, Top = -10000, ShowInTaskbar = false };
+                    queueView.Show(); queueView.UpdateLayout();
+                    Check(queueView.Content is TabControl { Items.Count: 2 }, "Queue window has Queue and Activity tabs");
+                    LayoutChecks.Snapshot(queueView, "queue.png"); queueView.Close();
+                }
                 var updatePanel = (StackPanel)((ScrollViewer)updates.Content).Content;
                 Check(updatePanel.Children.OfType<TextBlock>().Any(x => x.Text.Contains("0.9.0")), "Update window clearly displays current and available versions");
                 Check(updatePanel.Children.OfType<Button>().Any(x => (string)x.Content == "Tải và cập nhật" && x.IsEnabled), "Update action is available after a release is found");

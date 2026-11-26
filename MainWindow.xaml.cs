@@ -33,12 +33,21 @@ public partial class MainWindow : Window
     private bool installingUpdate;
     private bool resumePoll, resumeSpeed, resumeUpdates;
     private bool exitRequested, folderOpening;
-    private readonly TransferLane uploads = new(), downloads = new();
+    private readonly TransferCenter transfers;
+    private readonly InboxWatcher inbox;
+    private readonly E2eKeys e2eKeys;
+    private Services.Lan.LanService? lan;
+    private Services.Lan.LanTrustStore? lanTrust;
+    private readonly DispatcherTimer watchTimer = new() { Interval = TimeSpan.FromSeconds(8) };
+    private readonly DispatcherTimer notifyTimer = new() { Interval = TimeSpan.FromSeconds(1.2) };
+    private readonly Dictionary<string, (DateTimeOffset At, List<Space> Spaces)> spaceCache = [];
+    private readonly Dictionary<string, Account> downloadAccounts = [];
+    private readonly List<(IncomingFile File, bool Auto, bool Risky)> incoming = [];
+    private bool watching;
+    private int tuneTicks;
     private readonly HashSet<string> downloadTargets = new(StringComparer.OrdinalIgnoreCase);
     private readonly DispatcherTimer speedTimer = new() { Interval = TimeSpan.FromSeconds(1) };
-    private DateTimeOffset lastUploadProgress, lastDownloadProgress;
-    private long uploadVersion, downloadVersion;
-    private bool HasTransfers => uploads.Count > 0 || downloads.Count > 0;
+    private bool HasTransfers => transfers.Uploads.Count > 0 || transfers.Downloads.Count > 0;
     private readonly DispatcherTimer poll = new() { Interval = TimeSpan.FromSeconds(15) };
     private readonly CancellationTokenSource lifetime = new();
     private CancellationTokenSource? operation;
@@ -48,7 +57,7 @@ public partial class MainWindow : Window
     private DateTimeOffset lastSpaceRefresh;
     private readonly CrossAccountCopier copier;
     private readonly GrantJournal grantJournal;
-    private readonly bool motion = SystemParameters.ClientAreaAnimation;
+    private readonly bool motion = SystemParameters.ClientAreaAnimation && !Ui.PerformanceMode.IsLite;
     private readonly DispatcherTimer islandTimer = new();
     private readonly List<double> upHistory = [], downHistory = [];
     private double lastUploadBps, lastDownloadBps;
@@ -61,6 +70,8 @@ public partial class MainWindow : Window
     private Account? CurrentAccount => AccountsBox.SelectedItem as Account;
     private Space? CurrentSpace => SpacesList.SelectedItem as Space;
     private DriveItem? CurrentFile => FilesGrid.SelectedItem as DriveItem;
+    private List<DriveItem> SelectedFiles => FilesGrid.SelectedItems.OfType<DriveItem>().ToList();
+    private readonly Dictionary<string, string> lastCrossFolder = [];
 
     public MainWindow() : this(null, null, false) { }
     public MainWindow(SavedState? initialState, SecureStore? localStore, bool preview, IAppUpdateBackend? updateBackend = null)
@@ -90,6 +101,15 @@ public partial class MainWindow : Window
         drive = new DriveService(http, auth.GetTokenAsync);
         grantJournal = new GrantJournal(store.Folder);
         copier = new CrossAccountCopier(drive, grantJournal);
+        e2eKeys = new E2eKeys(preview ? Path.Combine(Path.GetTempPath(), "DriveLink-preview") : store.Folder);
+        transfers = new TransferCenter(drive, compressor, () => state.Settings, preview ? Path.Combine(Path.GetTempPath(), "DriveLink-preview") : store.Folder) { Keys = e2eKeys };
+        transfers.Changed += () => Dispatcher.BeginInvoke(() => { UpdateControls(); RenderTransfers(); });
+        transfers.Completed += item => Dispatcher.BeginInvoke(() => OnTransferFinished(item));
+        refreshAfterUpload.Tick += async (_, _) => { refreshAfterUpload.Stop(); await RefreshAsync(true); };
+        inbox = new InboxWatcher(drive, preview ? Path.Combine(Path.GetTempPath(), "DriveLink-preview") : store.Folder) { SpacesOf = a => spaceCache.TryGetValue(a.Id, out var cached) ? cached.Spaces : [] };
+        inbox.Arrived += OnIncoming;
+        watchTimer.Tick += async (_, _) => await WatchAsync();
+        notifyTimer.Tick += (_, _) => { notifyTimer.Stop(); FlushIncoming(); };
         history = new LocalFileHistory(state, store);
         GlassCard.Motion = motion;
         for (var i = 0; i < SparkPoints; i++) { upHistory.Add(0); downHistory.Add(0); }
@@ -107,16 +127,20 @@ public partial class MainWindow : Window
         tray = new TrayController(
             () => Dispatcher.Invoke(ShowFromTray),
             () => Dispatcher.Invoke(() => { ShowFromTray(); Settings_Click(this, new RoutedEventArgs()); }),
-            () => Dispatcher.Invoke(() => { ShowFromTray(); exitRequested = true; Close(); }));
-        StateChanged += (_, _) => { if (WindowState == WindowState.Minimized && state.Settings.RunInBackground && !busy) HideToTray(); };
+            () => Dispatcher.Invoke(() => { ShowFromTray(); exitRequested = true; Close(); }),
+            () => Dispatcher.Invoke(() => { ShowFromTray(); Queue_Click(this, new RoutedEventArgs()); }));
+        StateChanged += (_, _) =>
+        {
+            if (WindowState != WindowState.Minimized) return;
+            if (state.Settings.RunInBackground && !busy) HideToTray();
+            else if (Ui.PerformanceMode.IsLite) Ui.PerformanceMode.TrimMemory();
+        };
         Closed += (_, _) => tray.Dispose();
         SpacesList.PreviewMouseDown += (sender, e) => { if (e.ChangedButton == MouseButton.Right) Space_RightClick(sender, e); };
-        uploads.Changed += UpdateControls;
-        downloads.Changed += UpdateControls;
         speedTimer.Tick += (_, _) =>
         {
-            if (uploads.Count == 0 || DateTimeOffset.UtcNow - lastUploadProgress > TimeSpan.FromSeconds(2)) { UploadSpeed.Text = "0 B/s"; lastUploadBps = 0; }
-            if (downloads.Count == 0 || DateTimeOffset.UtcNow - lastDownloadProgress > TimeSpan.FromSeconds(2)) { DownloadSpeed.Text = "0 B/s"; lastDownloadBps = 0; }
+            RenderTransfers();
+            if (++tuneTicks % 10 == 0) transfers.Tune();
             upHistory.Add(lastUploadBps); downHistory.Add(lastDownloadBps);
             if (upHistory.Count > SparkPoints) { upHistory.RemoveAt(0); downHistory.RemoveAt(0); }
             DrawSpark();
@@ -137,7 +161,8 @@ public partial class MainWindow : Window
             files = Enumerable.Range(1, 45).Select(i => new DriveItem { Id = "preview-" + i, Name = i % 3 == 0 ? $"Bản thiết kế không gian làm việc — phiên bản {i}.pdf" : $"Tài liệu chia sẻ {i:00}.zip", MimeType = "application/octet-stream", Size = i * 1728000, CreatedAt = DateTimeOffset.Now.AddMinutes(-i * 5), Owners = [new() { Email = i % 2 == 0 ? "maynhan@example.com" : "quanghuy.demo@example.com", Me = i % 2 == 1 }], Capabilities = new() { CanCopy = true, CanDownload = true, CanShare = true, CanRename = true, CanTrash = true, CanModifyEditorContentRestriction = true } }).ToList();
             RenderUpdatedStatus(CurrentAccount?.Email ?? "maygui@example.com");
             RenderSpaceHeader(); RenderQuota(835628007219, 2199023255552, CurrentAccount);
-            RenderFiles(); UpdateCrossPanel(); PlayEntrance(); return;
+            RenderFiles(); UpdateCrossPanel(); PlayEntrance();
+            await TrimAfterStartupAsync(); return;
         }
         var area = SystemParameters.WorkArea;
         Left = Math.Clamp(Left, area.Left, Math.Max(area.Left, area.Right - ActualWidth));
@@ -149,7 +174,18 @@ public partial class MainWindow : Window
         updateTimer.Start();
         await ProtectTokensAsync();
         await RefreshAsync(); poll.Start();
+        OfferResumeTransfers();
+        watchTimer.Start(); _ = WatchAsync();
+        if (state.Settings.LanEnabled) StartLan();
         await RecoverTemporaryGrantsAsync();
+        await TrimAfterStartupAsync();
+    }
+    /// <summary>Chế độ nhẹ: sau khi tải xong, trả lại bộ nhớ chỉ dùng lúc khởi động (dựng giao diện, đọc dữ liệu).</summary>
+    private async Task TrimAfterStartupAsync()
+    {
+        if (!Ui.PerformanceMode.IsLite) return;
+        await Task.Delay(TimeSpan.FromSeconds(4));
+        Ui.PerformanceMode.TrimMemory();
     }
     /// <summary>Token lưu từ bản cũ được mã hóa lại bằng Windows Hello (hoặc khóa riêng trên máy). Người dùng hủy Hello thì để lần sau.</summary>
     private async Task ProtectTokensAsync()
@@ -185,7 +221,7 @@ public partial class MainWindow : Window
         DropOverlay.Background = new SolidColorBrush(Color.FromArgb((byte)(40 + 200 * opacity), 10, 15, 30));
     }
     public void ShowFromTray() { Show(); ShowInTaskbar = true; if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal; Activate(); }
-    private void HideToTray() { tray.Visible = true; Hide(); ShowInTaskbar = false; }
+    private void HideToTray() { tray.Visible = true; Hide(); ShowInTaskbar = false; Ui.PerformanceMode.TrimMemory(); }
     private void RenderUpdateNotice()
     {
         if (lifetime.IsCancellationRequested) return;
@@ -210,7 +246,8 @@ public partial class MainWindow : Window
         store.Save(state);
         resumePoll = poll.IsEnabled; resumeSpeed = speedTimer.IsEnabled; resumeUpdates = updateTimer.IsEnabled;
         installingUpdate = true; exitRequested = true;
-        poll.Stop(); speedTimer.Stop(); updateTimer.Stop(); IsEnabled = false;
+        _ = lan?.StopAsync();
+        poll.Stop(); watchTimer.Stop(); speedTimer.Stop(); updateTimer.Stop(); IsEnabled = false;
         return true;
     }
     private void RestoreAfterUpdateFailure()
@@ -223,7 +260,7 @@ public partial class MainWindow : Window
     {
         if (state.Settings.RunInBackground && !exitRequested && !busy) { e.Cancel = true; HideToTray(); return; }
         if ((busy || HasTransfers) && MessageBox.Show(this, "Một thao tác đang thực hiện. Đóng ứng dụng sẽ hủy thao tác đó. Tiếp tục đóng?", "Đóng DriveLink", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) { e.Cancel = true; exitRequested = false; return; }
-        poll.Stop(); speedTimer.Stop(); updateTimer.Stop(); lifetime.Cancel(); operation?.Cancel(); uploads.CancelAll(); downloads.CancelAll();
+        poll.Stop(); speedTimer.Stop(); updateTimer.Stop(); lifetime.Cancel(); operation?.Cancel(); transfers.Shutdown();
     }
     private void ReloadAccounts()
     {
@@ -362,10 +399,10 @@ public partial class MainWindow : Window
     {
         AccountsBox.IsEnabled = !busy && !refreshing && !HasTransfers && !demo;
         SpacesList.IsEnabled = !busy && !refreshing && !HasTransfers;
-        CancelUploads.IsEnabled = uploads.Count > 0;
-        CancelDownloads.IsEnabled = downloads.Count > 0;
+        CancelUploads.IsEnabled = transfers.Uploads.Count > 0;
+        CancelDownloads.IsEnabled = transfers.Downloads.Count > 0;
         CrossButton.IsEnabled = CanCross();
-        var active = uploads.Count + downloads.Count;
+        var active = transfers.Uploads.Count + transfers.Downloads.Count;
         LiveText.Text = active > 0 ? $"Đang chạy · {active}" : "Rảnh";
         LiveText.Foreground = (Brush)FindResource(active > 0 ? "GlGreen" : "GlMuted");
         LiveDot.Fill = (Brush)FindResource(active > 0 ? "GlGreen" : "GlFaint");
@@ -418,6 +455,7 @@ public partial class MainWindow : Window
                 SpacesList.SelectedItem = spaces.FirstOrDefault(x => x.Id == spaceId) ?? spaces.FirstOrDefault();
                 applying = false;
                 lastSpaceRefresh = DateTimeOffset.UtcNow;
+                spaceCache[account.Id] = (DateTimeOffset.UtcNow, spaces.ToList());
             }
             if (lastSpaceRefresh >= DateTimeOffset.UtcNow.AddSeconds(-2)) _ = RefreshQuotaAsync(account);
             RenderSpaceHeader();
@@ -490,8 +528,61 @@ public partial class MainWindow : Window
     }
     private async void Refresh_Click(object s, RoutedEventArgs e) => await RefreshAsync();
     private void Cancel_Click(object s, RoutedEventArgs e) => operation?.Cancel();
-    private void CancelUploads_Click(object s, RoutedEventArgs e) => uploads.CancelAll();
-    private void CancelDownloads_Click(object s, RoutedEventArgs e) => downloads.CancelAll();
+    private Services.Lan.LanService EnsureLan()
+    {
+        if (lan is not null) return lan;
+        var folder = store.Folder;
+        lanTrust = new Services.Lan.LanTrustStore(folder);
+        lan = new Services.Lan.LanService(Services.Lan.LanIdentity.Load(folder), lanTrust)
+        {
+            ReceiveFolder = () => state.Settings.ResolveInboxFolder(),
+            ConfirmPairing = (name, code) => Dispatcher.InvokeAsync(() =>
+            {
+                ShowFromTray();
+                return MessageBox.Show(this, $"Máy “{name}” trong mạng LAN muốn ghép nối với máy này.\n\nMã trên máy này: {code}\n\nChỉ bấm Có nếu bạn vừa bấm Ghép nối trên máy kia VÀ mã hiện ở đó giống hệt.", "Ghép nối LAN", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+            }).Task,
+        };
+        lan.FileReceived += (from, path) => Dispatcher.BeginInvoke(() =>
+        {
+            transfers.AddActivity(new ActivityEntry { Time = DateTimeOffset.Now, Direction = TransferDirection.Download, Name = Path.GetFileName(path), Space = "LAN ← " + from, Result = TransferState.Done, Bytes = new FileInfo(path).Length, LocalPath = path, Note = "Nhận thẳng trong mạng LAN" });
+            var title = "Nhận thẳng qua LAN từ " + from;
+            if (IsVisible && IsActive) ShowIsland(IslandKind.Done, title, Path.GetFileName(path), 460, 4.5);
+            else tray.Notify(title, Path.GetFileName(path) + "\nĐã lưu vào Hộp thư đến\\LAN", () => Dispatcher.Invoke(ShowFromTray));
+        });
+        return lan;
+    }
+    private string? StartLan()
+    {
+        try { EnsureLan().Start(); return null; }
+        catch (System.Net.Sockets.SocketException ex) { _ = lan?.StopAsync(); return "Không mở được cổng LAN (có thể app khác đang dùng cổng 47210/47211): " + ex.Message; }
+    }
+    private LanWindow? lanWindow;
+    private void Lan_Click(object sender, RoutedEventArgs e)
+    {
+        if (preview || demo) return;
+        if (lanWindow is { IsLoaded: true }) { lanWindow.Activate(); return; }
+        var service = EnsureLan();
+        lanWindow = new LanWindow(service, lanTrust!, service.IsRunning, on =>
+        {
+            string? error = null;
+            if (on) error = StartLan(); else _ = service.StopAsync();
+            state.Settings.LanEnabled = on && error is null;
+            try { store.Save(state); } catch (Exception ex) { error ??= ex.Message; }
+            return error;
+        }, (name, bytes, elapsed, ok, note) => transfers.AddActivity(new ActivityEntry { Time = DateTimeOffset.Now, Direction = TransferDirection.Upload, Name = name, Space = "LAN", Result = ok ? TransferState.Done : TransferState.Failed, Bytes = bytes, Seconds = elapsed.TotalSeconds, Note = note })) { Owner = this };
+        lanWindow.Closed += (_, _) => lanWindow = null;
+        lanWindow.Show();
+    }
+    private QueueWindow? queueWindow;
+    private void Queue_Click(object sender, RoutedEventArgs e)
+    {
+        if (queueWindow is { IsLoaded: true }) { queueWindow.Activate(); return; }
+        queueWindow = new QueueWindow(transfers) { Owner = this };
+        queueWindow.Closed += (_, _) => queueWindow = null;
+        queueWindow.Show();
+    }
+    private void CancelUploads_Click(object s, RoutedEventArgs e) => transfers.CancelAll(TransferDirection.Upload);
+    private void CancelDownloads_Click(object s, RoutedEventArgs e) => transfers.CancelAll(TransferDirection.Download);
 
     private void Settings_Click(object s, RoutedEventArgs e)
     {
@@ -575,6 +666,9 @@ public partial class MainWindow : Window
             colors.Items.Add(choice);
         }
         menu.Items.Add(colors);
+        var e2e = new MenuItem { Header = e2eKeys.Find(space.Id) is null ? "Mã hóa đầu cuối…" : "Mã hóa đầu cuối (đang bật)…" };
+        e2e.Click += (_, _) => { if (new E2eWindow(e2eKeys, space.Id, space.ToString()) { Owner = this }.ShowDialog() == true) RenderSpaceHeader(); };
+        menu.Items.Add(e2e);
         var hide = new MenuItem { Header = "Ẩn khỏi danh sách trên máy này" };
         hide.Click += (_, _) => { EditSpacePreference(space, p => p.Hidden = true); _ = RefreshAsync(); };
         menu.Items.Add(hide); menu.Items.Add(new Separator());
@@ -625,7 +719,7 @@ public partial class MainWindow : Window
     private async void UploadFolder_Click(object s, RoutedEventArgs e)
     {
         if (!Ready() || busy) return;
-        var picker = new OpenFolderDialog { Title = "Chọn thư mục để nén rồi gửi", Multiselect = true };
+        var picker = new OpenFolderDialog { Title = state.Settings.FolderUploadMode == "tree" ? "Chọn thư mục để gửi nguyên cấu trúc" : "Chọn thư mục để nén rồi gửi", Multiselect = true };
         if (picker.ShowDialog(this) == true) await UploadPathsAsync(picker.FolderNames);
     }
     private void Upload_DragOver(object s, DragEventArgs e)
@@ -654,99 +748,209 @@ public partial class MainWindow : Window
         if (!Ready() || busy) return;
         if (e.Data.GetData(DataFormats.FileDrop) is string[] paths) await UploadPathsAsync(paths);
     }
-    private async Task UploadPathsAsync(string[] paths)
+    private Task UploadPathsAsync(string[] paths)
     {
-        if (!Ready() || busy || lifetime.IsCancellationRequested) return;
+        if (!Ready() || busy || lifetime.IsCancellationRequested) return Task.CompletedTask;
         var account = CurrentAccount!; var space = CurrentSpace!;
-        var tasks = paths.Select(path => ObserveTransferAsync(uploads.Enqueue(async laneToken =>
+        if (state.Settings.FolderUploadMode == "tree" && paths.Any(Directory.Exists))
         {
-            using var linked = CancellationTokenSource.CreateLinkedTokenSource(laneToken, lifetime.Token);
-            var version = ++uploadVersion;
-            UploadProgress.Value = 0;
-            var name = Path.GetFileName(path);
-            UploadLabel.Text = "Đang gửi: " + name;
-            var progress = new Progress<TransferProgress>(value =>
+            _ = UploadTreesAsync(account, space, paths);
+            return Task.CompletedTask;
+        }
+        foreach (var path in paths) transfers.EnqueueUpload(account, space, path);
+        UploadLabel.Text = paths.Length == 1 ? "Đang chờ gửi: " + Path.GetFileName(paths[0]) : $"Đã thêm {paths.Length} mục vào hàng gửi";
+        return Task.CompletedTask;
+    }
+    /// <summary>Gửi nguyên cây thư mục: tạo các thư mục con trên Drive rồi đưa từng tệp vào hàng gửi song song.</summary>
+    private async Task UploadTreesAsync(Account account, Space space, string[] paths)
+    {
+        try
+        {
+            foreach (var path in paths)
             {
-                if (version != uploadVersion || lifetime.IsCancellationRequested) return;
-                lastUploadProgress = DateTimeOffset.UtcNow;
-                UploadProgress.Value = value.Percent;
-                UploadSpeed.Text = value.SpeedLabel;
-                lastUploadBps = value.BytesPerSecond;
-                UploadLabel.Text = $"{name} · {value.AmountLabel} · {value.Percent:0}% · {uploads.Count} file trong hàng đợi";
-            });
+                if (!Directory.Exists(path)) { transfers.EnqueueUpload(account, space, path); continue; }
+                UploadLabel.Text = "Đang tạo cấu trúc thư mục: " + Path.GetFileName(path);
+                var count = await transfers.EnqueueTreeAsync(account, space, path, lifetime.Token);
+                UploadLabel.Text = $"Đã thêm {count} tệp của “{Path.GetFileName(path)}” vào hàng gửi";
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { ShowError(ex); }
+    }
+    /// <summary>Thẻ Truyền tải hiển thị tổng của mọi tệp đang chạy song song ở từng chiều.</summary>
+    private void RenderTransfers()
+    {
+        if (lifetime.IsCancellationRequested) return;
+        Render(TransferDirection.Upload, UploadLabel, UploadProgress, UploadSpeed, "gửi", ref lastUploadBps);
+        Render(TransferDirection.Download, DownloadLabel, DownloadProgress, DownloadSpeed, "nhận", ref lastDownloadBps);
+        void Render(TransferDirection direction, TextBlock label, ProgressBar bar, TextBlock speed, string verb, ref double bps)
+        {
+            var (active, waiting, bytes, total, rate, retrying) = transfers.Summary(direction);
+            bps = rate; speed.Text = DriveItem.FormatSize((long)rate) + "/s";
+            if (active == 0 && waiting == 0) return;
+            var running = transfers.Items.Where(i => i.Direction == direction && i.IsActive).ToList();
+            var preparing = running.FirstOrDefault(i => i.State == TransferState.Preparing);
+            bar.IsIndeterminate = preparing is not null && total == 0;
+            bar.Value = total > 0 ? Math.Clamp(bytes * 100d / total, 0, 100) : 0;
+            var head = active == 1 && running.FirstOrDefault(i => i.State is TransferState.Running or TransferState.Retrying or TransferState.Preparing) is { } one
+                ? one.Name + (one.Note.Length > 0 && one.State != TransferState.Running ? " · " + one.Note : "")
+                : $"Đang {verb} {active} tệp song song";
+            label.Text = (retrying ? "Mạng chập chờn, đang thử lại · " : "") + head + (total > 0 ? $" · {bar.Value:0}%" : "") + (waiting > 0 ? $" · {waiting} chờ" : "");
+        }
+    }
+    private readonly DispatcherTimer refreshAfterUpload = new() { Interval = TimeSpan.FromSeconds(1.5) };
+    private void OnTransferFinished(TransferItem item)
+    {
+        if (lifetime.IsCancellationRequested) return;
+        var upload = item.Direction == TransferDirection.Upload;
+        if (!upload) downloadTargets.Remove(item.LocalPath);
+        var label = upload ? UploadLabel : DownloadLabel;
+        switch (item.State)
+        {
+            case TransferState.Done:
+                if (item.FileId is { Length: > 0 } id)
+                {
+                    RememberLocalFile(id, item.LocalPath);
+                    if (!upload && downloadAccounts.Remove(item.Id, out var owner)) _ = MarkReceivedAsync(owner, id);
+                }
+                label.Text = (upload ? "Đã gửi: " : "Đã nhận: ") + item.Name + (item.Note.Length > 0 ? " · " + item.Note : "");
+                ShowIsland(IslandKind.Done, (upload ? "Đã gửi " : "Đã nhận ") + item.Name, upload ? "Vào “" + item.Space + "”" : "Nhấn vào tệp trong danh sách để mở thư mục trên máy", 440, 3.5);
+                if (upload) { refreshAfterUpload.Stop(); refreshAfterUpload.Start(); }
+                else StatusLabel.Text = "Đã tải xong. Nhấn vào file trong danh sách để mở thư mục trên máy.";
+                break;
+            case TransferState.Canceled:
+                label.Text = (upload ? "Đã hủy gửi: " : "Đã hủy nhận: ") + item.Name;
+                break;
+            case TransferState.Failed:
+                label.Text = (upload ? "Gửi chưa hoàn tất: " : "Nhận chưa hoàn tất: ") + item.Name;
+                ShowIsland(IslandKind.Warn, (upload ? "Chưa gửi được " : "Chưa nhận được ") + item.Name, item.Note.Split('\n')[0], 460, 6);
+                StatusLabel.Text = item.Note;
+                break;
+        }
+        RenderTransfers(); UpdateControls();
+    }
+    /// <summary>Ghi "máy này đã nhận" lên tệp để người gửi thấy. Không có quyền sửa thì bỏ qua.</summary>
+    private async Task MarkReceivedAsync(Account account, string fileId)
+    {
+        try { await drive.MarkReceivedAsync(account, fileId, lifetime.Token); }
+        catch (Exception) { /* Chỉ là thông tin thêm; lỗi mạng không ảnh hưởng tệp đã nhận. */ }
+    }
+    /// <summary>Kiểm tra tệp mới của mọi tài khoản (vài giây một lần, rất nhẹ).</summary>
+    private async Task WatchAsync()
+    {
+        if (watching || demo || installingUpdate || lifetime.IsCancellationRequested) return;
+        watching = true;
+        try
+        {
+            foreach (var account in state.Accounts.ToList())
+            {
+                if (!spaceCache.TryGetValue(account.Id, out var cached) || DateTimeOffset.UtcNow - cached.At > TimeSpan.FromMinutes(10))
+                {
+                    try { spaceCache[account.Id] = (DateTimeOffset.UtcNow, await drive.ListSpacesAsync(account, lifetime.Token)); }
+                    catch (Exception ex) when (ex is not OperationCanceledException) { continue; }
+                }
+                try { await inbox.CheckAsync(account, lifetime.Token); }
+                catch (Exception ex) when (ex is not OperationCanceledException) { /* Mạng hoặc Windows Hello chưa mở khóa: lần sau thử lại. */ }
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally { watching = false; }
+    }
+    private void OnIncoming(IncomingFile file)
+    {
+        var settings = state.Settings;
+        var risky = RiskyFiles.IsExecutable(file.File.Name);
+        var auto = settings.AutoDownloadInbox && !risky && file.File.Capabilities.CanDownload && (!file.File.IsEncrypted || e2eKeys.KeyFor(file.File.E2eSpace) is not null) && (settings.AutoDownloadMaxMb <= 0 || file.File.Size <= settings.AutoDownloadMaxMb * 1048576L);
+        if (auto)
+        {
             try
             {
-                UploadProgress.IsIndeterminate = Directory.Exists(path);
-                using var packed = Directory.Exists(path)
-                    ? await compressor.PackAsync(path, state.Settings, new Progress<string>(text => { if (version == uploadVersion) UploadLabel.Text = text; }), linked.Token)
-                    : null;
-                var uploadPath = packed?.ArchivePath ?? path;
-                UploadProgress.IsIndeterminate = false;
-                name = Path.GetFileName(uploadPath);
-                var id = await drive.UploadAsync(account, space.Id, uploadPath, progress, linked.Token);
-                RememberLocalFile(id, path);
-                UploadLabel.Text = "Đã gửi: " + name + (packed is null ? "" : $" · {DriveItem.FormatSize(packed.OriginalBytes)} → {DriveItem.FormatSize(packed.ArchiveBytes)}");
-                UploadProgress.Value = 100;
-                ShowIsland(IslandKind.Done, "Đã gửi " + name, "Vào “" + space + "”", 420, 3.5);
-                await RefreshAsync(true);
+                var folder = Path.Combine(settings.ResolveInboxFolder(), string.Concat(file.Space.ToString().Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c)));
+                Directory.CreateDirectory(folder);
+                var target = InboxWatcher.UniquePath(folder, file.File.PlainName);
+                if (downloadTargets.Add(target)) downloadAccounts[transfers.EnqueueDownload(file.Account, file.File, target, file.Space.ToString()).Id] = file.Account;
             }
-            catch (OperationCanceledException) { UploadLabel.Text = "Đã hủy gửi. Kiểm tra Drive trước khi gửi lại."; throw; }
-            catch { UploadLabel.Text = "Gửi chưa hoàn tất: " + name; throw; }
-            finally { ++uploadVersion; UploadSpeed.Text = "0 B/s"; lastUploadBps = 0; UploadProgress.IsIndeterminate = false; }
-        }), "gửi")).ToArray();
-        await Task.WhenAll(tasks);
-        await RefreshAsync();
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { auto = false; StatusLabel.Text = "Không tạo được thư mục Hộp thư đến: " + ex.Message; }
+        }
+        if (CurrentAccount?.Id == file.Account.Id && CurrentSpace?.Id == file.Space.Id) { refreshAfterUpload.Stop(); refreshAfterUpload.Start(); }
+        incoming.Add((file, auto, risky));
+        notifyTimer.Stop(); notifyTimer.Start();
     }
-    private async Task ObserveTransferAsync(Task task, string direction)
+    /// <summary>Gom các tệp đến cùng lúc thành một thông báo.</summary>
+    private void FlushIncoming()
     {
-        try { await task; }
-        catch (OperationCanceledException) { if (!lifetime.IsCancellationRequested) StatusLabel.Text = "Đã hủy hàng đợi " + direction + "."; }
-        catch (Exception ex) { ShowError(ex); }
+        if (incoming.Count == 0) return;
+        var batch = incoming.ToList(); incoming.Clear();
+        string title, text;
+        if (batch.Count == 1)
+        {
+            var (file, auto, risky) = batch[0];
+            var from = file.File.SenderMachine.Length > 0 ? "máy " + file.File.SenderMachine : file.File.OwnerLabel;
+            title = "Tệp mới trong “" + file.Space + "”";
+            text = $"{file.File.Name} · {file.File.SizeLabel} · từ {from}" + (auto ? "\nĐang tải về Hộp thư đến" : risky ? "\nTệp chạy được: không tự tải, hãy kiểm tra người gửi" : "");
+        }
+        else
+        {
+            title = $"{batch.Count} tệp mới";
+            text = string.Join(", ", batch.Take(3).Select(x => x.File.File.Name)) + (batch.Count > 3 ? $" và {batch.Count - 3} tệp khác" : "") + (batch.Any(x => x.Auto) ? "\nĐang tải về Hộp thư đến" : "");
+        }
+        if (IsVisible && IsActive) ShowIsland(IslandKind.Done, title, text.Split('\n')[0], 460, 4.5);
+        else if (state.Settings.NotifyNewFiles) tray.Notify(title, text, () => Dispatcher.Invoke(ShowFromTray));
+    }
+    /// <summary>Lượt gửi/nhận bị dừng do tắt app lần trước: hỏi để tiếp tục từ chỗ đã dừng.</summary>
+    private void OfferResumeTransfers()
+    {
+        var pending = transfers.Unfinished();
+        if (pending.Count == 0) return;
+        var uploadsLeft = pending.Count(r => r.Direction == TransferDirection.Upload);
+        var answer = MessageBox.Show(this, $"Lần trước còn {pending.Count} lượt chưa xong ({uploadsLeft} gửi, {pending.Count - uploadsLeft} nhận). Tiếp tục từ chỗ đã dừng?\n\nChọn Không để bỏ các lượt này (phần đã tải dở sẽ bị xóa).", "Tiếp tục truyền tệp", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        foreach (var record in pending)
+        {
+            var account = state.Accounts.FirstOrDefault(a => a.Id == record.AccountId);
+            var valid = answer == MessageBoxResult.Yes && account is not null && (record.Direction == TransferDirection.Download ? Directory.Exists(Path.GetDirectoryName(record.Destination)) : File.Exists(record.SourcePath) || Directory.Exists(record.SourcePath));
+            if (!valid) { transfers.Discard(record); continue; }
+            if (record.Direction == TransferDirection.Upload) transfers.EnqueueUpload(account!, new Space { Id = record.SpaceId, Name = record.SpaceName }, record.SourcePath, record);
+            else if (downloadTargets.Add(record.Destination)) transfers.EnqueueDownload(account!, TransferCenter.ToDriveItem(record), record.Destination, record.SpaceName, record);
+        }
     }
     private async void Download_Click(object s, RoutedEventArgs e)
     {
         if (!Ready() || busy || lifetime.IsCancellationRequested || !EnsureFileSelected("tải về") || CurrentFile is not { } file) return;
+        if (SelectedFiles is { Count: > 1 } many) { DownloadMany(many); return; }
         if (file.MimeType.StartsWith("application/vnd.google-apps.")) { MessageBox.Show(this, "Dùng Mở trên Drive cho thư mục và tài liệu Google. Bản đầu chưa hỗ trợ xuất tài liệu Google.", "Tải về"); return; }
         if (!ConfirmRiskyFile(file, "tải về")) return;
-        var safeName = string.Concat(file.Name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+        if (!EnsureE2eKey(file)) return;
+        var safeName = string.Concat(file.PlainName.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
         var picker = new SaveFileDialog { FileName = safeName, Title = "Lưu file", OverwritePrompt = true };
         if (picker.ShowDialog(this) != true) return;
         var target = Path.GetFullPath(picker.FileName);
         if (!downloadTargets.Add(target)) { StatusLabel.Text = "File đích này đang được tải hoặc đã nằm trong hàng đợi."; return; }
-        var account = CurrentAccount!;
-        try
+        var manual = transfers.EnqueueDownload(CurrentAccount!, file, target, CurrentSpace?.ToString() ?? "");
+        downloadAccounts[manual.Id] = CurrentAccount!;
+        DownloadLabel.Text = "Đang chờ nhận: " + file.Name;
+    }
+    /// <summary>Tệp mã hóa đầu cuối cần khóa của không gian: hỏi mật khẩu nếu máy này chưa có. Tệp thường thì luôn được.</summary>
+    private bool EnsureE2eKey(DriveItem file)
+    {
+        if (!file.IsEncrypted || e2eKeys.KeyFor(file.E2eSpace) is not null) return true;
+        var name = spaceCache.Values.SelectMany(c => c.Spaces).FirstOrDefault(s => s.Id == file.E2eSpace)?.ToString() ?? CurrentSpace?.ToString() ?? "không gian của tệp";
+        return new E2eWindow(e2eKeys, file.E2eSpace, name, askOnly: true) { Owner = this }.ShowDialog() == true && e2eKeys.KeyFor(file.E2eSpace) is not null;
+    }
+    /// <summary>Tải nhiều tệp cùng lúc vào một thư mục (chạy song song theo hàng nhận). Thư mục và tài liệu Google được bỏ qua.</summary>
+    private void DownloadMany(List<DriveItem> items)
+    {
+        var downloadable = items.Where(x => !x.MimeType.StartsWith("application/vnd.google-apps.", StringComparison.Ordinal)).ToList();
+        if (downloadable.Count == 0) { MessageBox.Show(this, "Các mục đã chọn là thư mục hoặc tài liệu Google. Dùng Mở trên Drive cho các mục này.", "Tải về"); return; }
+        if (downloadable.Any(x => !ConfirmRiskyFile(x, "tải về") || !EnsureE2eKey(x))) return;
+        var picker = new OpenFolderDialog { Title = $"Chọn thư mục lưu {downloadable.Count} tệp" };
+        if (picker.ShowDialog(this) != true) return;
+        foreach (var item in downloadable)
         {
-            await ObserveTransferAsync(downloads.Enqueue(async laneToken =>
-            {
-                using var linked = CancellationTokenSource.CreateLinkedTokenSource(laneToken, lifetime.Token);
-                var version = ++downloadVersion;
-                DownloadProgress.IsIndeterminate = false; DownloadProgress.Value = 0;
-                DownloadLabel.Text = "Đang nhận: " + file.Name;
-                var progress = new Progress<TransferProgress>(value =>
-                {
-                    if (version != downloadVersion || lifetime.IsCancellationRequested) return;
-                    lastDownloadProgress = DateTimeOffset.UtcNow;
-                    DownloadProgress.IsIndeterminate = !value.TotalBytes.HasValue;
-                    DownloadProgress.Value = value.Percent;
-                    DownloadSpeed.Text = value.SpeedLabel;
-                    lastDownloadBps = value.BytesPerSecond;
-                    DownloadLabel.Text = $"{file.Name} · {value.AmountLabel} · {downloads.Count} file trong hàng đợi";
-                });
-                try
-                {
-                    await drive.DownloadAsync(account, file, target, linked.Token, progress);
-                    RememberLocalFile(file.Id, target);
-                    DownloadProgress.IsIndeterminate = false; DownloadProgress.Value = 100;
-                    DownloadLabel.Text = "Đã nhận: " + file.Name;
-                    StatusLabel.Text = "Đã tải xong. Nhấn vào file trong danh sách để mở thư mục trên máy.";
-                    ShowIsland(IslandKind.Done, "Đã nhận " + file.Name, "Nhấn vào tệp trong danh sách để mở thư mục trên máy", 460, 3.5);
-                }
-                catch (OperationCanceledException) { DownloadLabel.Text = "Đã hủy nhận: " + file.Name; throw; }
-                catch { DownloadLabel.Text = "Nhận chưa hoàn tất: " + file.Name; throw; }
-                finally { ++downloadVersion; DownloadSpeed.Text = "0 B/s"; lastDownloadBps = 0; DownloadProgress.IsIndeterminate = false; }
-            }), "nhận");
+            var target = InboxWatcher.UniquePath(picker.FolderName, item.PlainName);
+            if (!downloadTargets.Add(target)) continue;
+            downloadAccounts[transfers.EnqueueDownload(CurrentAccount!, item, target, CurrentSpace?.ToString() ?? "").Id] = CurrentAccount!;
         }
-        finally { downloadTargets.Remove(target); }
+        DownloadLabel.Text = $"Đã thêm {downloadable.Count} tệp vào hàng nhận" + (downloadable.Count < items.Count ? $" (bỏ qua {items.Count - downloadable.Count} thư mục/tài liệu Google)" : "");
     }
     private void OpenFile_Click(object s, RoutedEventArgs e)
     {
@@ -938,7 +1142,7 @@ public partial class MainWindow : Window
     {
         var space = CurrentSpace;
         SpaceDot.Fill = space is null ? (Brush)FindResource("GlFaint") : ToBrush(space.Color);
-        SendTarget.Text = space is null ? "Chưa chọn không gian" : "→ " + space;
+        SendTarget.Text = space is null ? "Chưa chọn không gian" : "→ " + space + (e2eKeys.Find(space.Id) is not null ? " · 🔐 mã hóa" : "");
     }
     private static Brush ToBrush(string color)
     {
@@ -995,17 +1199,22 @@ public partial class MainWindow : Window
     private string? crossSummary, crossSummaryFileId;
     private IEnumerable<Account> OtherAccounts => state.Accounts.Where(x => x.Id != CurrentAccount?.Id);
     private bool CanCross() => !demo && !busy && !HasTransfers && !installingUpdate && !crossRunning
-        && CurrentAccount is not null && crossTarget is not null && CurrentFile is { } file && file.MimeType != FolderMime;
+        && CurrentAccount is not null && crossTarget is not null && CurrentFile is not null;
     private void UpdateCrossPanel()
     {
         if (crossTarget is not null && (crossTarget.Id == CurrentAccount?.Id || !state.Accounts.Contains(crossTarget))) crossTarget = null;
         crossTarget ??= OtherAccounts.FirstOrDefault();
         CrossTargetText.Text = crossTarget is null ? "Thêm tài khoản thứ hai" : "Đến " + DisplayPrivacy.MaskEmail(crossTarget.Email);
         CrossTargetButton.ToolTip = crossTarget is null ? "Gửi chéo cần ít nhất hai tài khoản Google trong DriveLink" : "Chọn tài khoản đích";
-        if (CurrentFile is { } file)
+        if (SelectedFiles is { Count: > 1 } many)
+        {
+            CrossSource.Text = $"{many.Count} mục đã chọn";
+            CrossSourceMeta.Text = (many.Any(x => x.MimeType == FolderMime) ? "Có thư mục · giữ nguyên cấu trúc" : DriveItem.FormatSize(many.Sum(x => x.Size))) + " · chọn nơi nhận khi gửi";
+        }
+        else if (CurrentFile is { } file)
         {
             CrossSource.Text = file.Name;
-            CrossSourceMeta.Text = file.MimeType == FolderMime ? "Thư mục chưa hỗ trợ gửi chéo" : (file.Size > 0 ? file.SizeLabel : "Tài liệu Google") + " · bản sao vào Drive của tôi";
+            CrossSourceMeta.Text = (file.MimeType == FolderMime ? "Thư mục · giữ nguyên cấu trúc" : file.Size > 0 ? file.SizeLabel : "Tài liệu Google") + " · chọn nơi nhận khi gửi";
         }
         else
         {
@@ -1034,9 +1243,48 @@ public partial class MainWindow : Window
     }
     private async void Cross_Click(object sender, RoutedEventArgs e)
     {
-        if (CurrentFile is { } file && crossTarget is { } target) await RunCrossAsync(file, target);
+        if (CurrentFile is null || crossTarget is not { } target || CurrentAccount is not { } source) return;
+        var items = SelectedFiles;
+        IReadOnlyList<Space> spaces = [];
+        try { spaces = spaceCache.TryGetValue(target.Id, out var cached) ? cached.Spaces : await drive.ListSpacesAsync(target, lifetime.Token); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { StatusLabel.Text = "Chưa đọc được không gian của tài khoản đích; vẫn có thể gửi vào Drive của tôi."; }
+        var summary = items.Count == 1 ? items[0].Name : $"{items.Count} mục ({items.Count(x => x.MimeType == FolderMime)} thư mục)";
+        var picker = new CrossDestinationWindow(target.Email, summary, spaces, lastCrossFolder.GetValueOrDefault(target.Id)) { Owner = this };
+        if (picker.ShowDialog() != true || picker.Selected is not { } destination) return;
+        lastCrossFolder[target.Id] = destination.FolderId;
+        if (items.Count == 1 && items[0].MimeType != FolderMime) await RunCrossAsync(items[0], target, destination.FolderId, destination.Label);
+        else await RunCrossBatchAsync(source, items, target, destination);
     }
-    private async Task RunCrossAsync(DriveItem item, Account target)
+    /// <summary>Gửi chéo nhiều mục hoặc thư mục (giữ cấu trúc). Lỗi từng tệp được liệt kê, không dừng cả lượt.</summary>
+    private async Task RunCrossBatchAsync(Account source, List<DriveItem> items, Account target, CrossDestinationWindow.Choice destination)
+    {
+        if (crossRunning || !Ready()) return;
+        crossRunning = true; UpdateControls();
+        CrossCard.IsHighlighted = true; StartFlow(true);
+        var masked = DisplayPrivacy.MaskEmail(target.Email);
+        ShowIsland(IslandKind.Busy, $"Đang gửi chéo {items.Count} mục", "Đến " + masked, 460);
+        var phase = new Progress<string>(text => { CrossStatus.Text = text; IslandSub.Text = text; });
+        CrossBatchResult? result = null;
+        try
+        {
+            await RunAsync(async ct => result = await copier.CopyManyAsync(source, target, items, destination.FolderId, phase, size => Task.FromResult(MessageBox.Show(this,
+                $"Google không cho cấp quyền xem tạm cho một số tệp. DriveLink có thể tải các tệp đó về máy này rồi tải lên tài khoản {masked} (tệp đầu tiên {DriveItem.FormatSize(size)}).\n\nTiếp tục cho mọi tệp như vậy trong lượt này?",
+                "Gửi chéo qua máy", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes), null, ct));
+        }
+        finally { crossRunning = false; CrossCard.IsHighlighted = false; StartFlow(false); UpdateControls(); }
+        if (result is not { } done) { HideIsland(); return; }
+        var seconds = done.Elapsed.TotalSeconds.ToString("0.0", Vi) + "s";
+        crossSummaryFileId = CurrentFile?.Id; crossSummary = $"{done.Files} tệp · {done.Folders} thư mục · {seconds}";
+        var title = done.Failures.Count == 0 ? $"Đã gửi chéo {done.Files} tệp" : $"Đã gửi {done.Files} tệp · {done.Failures.Count} lỗi";
+        ShowIsland(done.Failures.Count == 0 && !done.RevokeFailed ? IslandKind.Done : IslandKind.Warn, title, $"→ {masked} · {destination.Label} · {seconds}", 540, 6);
+        if (done.Failures.Count > 0 || done.RevokeFailed)
+            MessageBox.Show(this, (done.Failures.Count > 0 ? "Các mục chưa gửi được:\n• " + string.Join("\n• ", done.Failures.Take(15)) + (done.Failures.Count > 15 ? $"\n… và {done.Failures.Count - 15} mục khác" : "") : "")
+                + (done.RevokeFailed ? $"\n\nChưa thu hồi được một quyền xem tạm của {masked}. DriveLink sẽ thử lại ở lần mở sau; bạn cũng có thể gỡ trong Chia sẻ." : ""),
+                "Gửi chéo", MessageBoxButton.OK, MessageBoxImage.Warning);
+        StatusLabel.Text = $"Đã gửi chéo {done.Files} tệp, {done.Folders} thư mục vào {destination.Label} của {masked}.";
+        UpdateCrossPanel();
+    }
+    private async Task RunCrossAsync(DriveItem item, Account target, string folderId = "root", string destinationLabel = "Drive của tôi")
     {
         if (crossRunning || !Ready() || CurrentAccount is not { } source) return;
         for (var i = 0; i < 100 && refreshing; i++) await Task.Delay(100);
@@ -1049,7 +1297,7 @@ public partial class MainWindow : Window
         CrossCopyResult? result = null;
         try
         {
-            await RunAsync(async ct => result = await copier.CopyAsync(source, target, item, phase, size => Task.FromResult(MessageBox.Show(this,
+            await RunAsync(async ct => result = await copier.CopyCoreAsync(source, target, item, folderId, phase, size => Task.FromResult(MessageBox.Show(this,
                 $"Google không cho cấp quyền xem tạm cho tệp “{item.Name}” (có thể do chính sách chia sẻ của tổ chức).\n\n" +
                 $"DriveLink có thể tải tệp về máy này rồi tải lên tài khoản {masked}. Việc này dùng khoảng {DriveItem.FormatSize(size * 2)} băng thông và cần {DriveItem.FormatSize(size)} chỗ trống tạm trên ổ đĩa.\n\nTiếp tục?",
                 "Gửi chéo qua máy", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes), relay, ct));
@@ -1064,7 +1312,7 @@ public partial class MainWindow : Window
         var through = done.BytesThroughMachine == 0 ? "0 MB qua máy này" : DriveItem.FormatSize(done.BytesThroughMachine) + " qua máy này";
         var seconds = done.Elapsed.TotalSeconds.ToString("0.0", Vi) + "s";
         crossSummary = $"Hoàn tất · {seconds} · {through}";
-        StatusLabel.Text = $"Đã gửi chéo “{item.Name}” vào Drive của {masked}.";
+        StatusLabel.Text = $"Đã gửi chéo “{item.Name}” vào {destinationLabel} của {masked}.";
         if (done.RevokeFailed)
         {
             ShowIsland(IslandKind.Warn, "Đã sao chép · Chưa thu hồi được quyền tạm", "Mở Chia sẻ của tệp để gỡ quyền của " + masked, 520, 8);

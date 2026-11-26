@@ -17,7 +17,8 @@ Copy-Item -LiteralPath (Join-Path $projectRoot 'CLOUD-OAUTH.md') -Destination $r
 $sourceNames = @('App.xaml','App.xaml.cs','AppBrand.cs','DriveLink.csproj','GlobalUsings.cs','MainWindow.xaml','MainWindow.xaml.cs','LoginStatusWindow.xaml','LoginStatusWindow.xaml.cs','Models.cs','Dialogs.cs','CloudConfigWindow.cs','README.md','CHANGELOG.md','Assets\DriveLink.png','Assets\DriveLink-web.png','Assets\DriveLink.ico','tests\Program.cs','tests\DriveLink.Checks.csproj','scripts\Build-Release.ps1')
 $sourceNames += Get-ChildItem -LiteralPath (Join-Path $projectRoot 'supabase') -File | ForEach-Object { "supabase\$($_.Name)" }
 Copy-Item -LiteralPath (Join-Path $projectRoot 'supabase') -Destination (Join-Path $releasePath 'supabase') -Recurse
-$sourceNames += Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Services') -Filter '*.cs' -File | ForEach-Object { "Services\$($_.Name)" }
+$servicesRoot = Join-Path $projectRoot 'Services'
+$sourceNames += Get-ChildItem -LiteralPath $servicesRoot -Filter '*.cs' -File -Recurse | ForEach-Object { 'Services\' + $_.FullName.Substring($servicesRoot.Length + 1) }
 $sourceNames += @('tests\CloudChecks.cs')
 $sourceNames += @('scripts\Set-CloudDefaults.ps1')
 $sourceNames += @('CLOUD-OAUTH.md')
@@ -26,6 +27,9 @@ $sourceNames += @('global.json','GITHUB-RELEASES.md','SECURITY.md','scripts\Publ
 $sourceNames += @('UpdateWindow.cs','tests\UpdateChecks.cs','.config\dotnet-tools.json','scripts\Build-UpdateRelease.ps1','RELEASE-NOTES.md')
 $sourceNames += @('UiPresentation.cs','FileWindows.cs','tests\FileActionChecks.cs','tests\LayoutChecks.cs')
 $sourceNames += @('tests\CrossCopyChecks.cs','GlassMessageBox.cs')
+$sourceNames += @('cloud\supabase-keepalive\README.md','cloud\supabase-keepalive\package.json','cloud\supabase-keepalive\package-lock.json','cloud\supabase-keepalive\cloudflare.config.ts','cloud\supabase-keepalive\vite.config.ts','cloud\supabase-keepalive\src\index.ts','cloud\supabase-keepalive\.gitignore')
+$sourceNames += @('scripts\Preview-Login.cjs')
+$sourceNames += @('QueueWindow.cs','CrossDestinationWindow.cs','E2eWindow.cs','LanWindow.cs','tests\TransferChecks.cs','tests\InboxChecks.cs','tests\CrossBatchChecks.cs','tests\E2eChecks.cs','tests\LanChecks.cs')
 $sourceNames += @('tests\SecurityChecks.cs','scripts\New-UpdateSigningKey.ps1','scripts\Sign-Release.ps1','scripts\Verify-Release.ps1','scripts\Publish-Release.ps1')
 foreach ($folder in @('Ui','Preview')) {
  $folderPath = Join-Path $projectRoot $folder

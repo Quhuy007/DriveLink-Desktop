@@ -9,6 +9,7 @@ public static class Theme
 {
     private static SolidColorBrush Solid(uint argb)
     {
+        argb = ThemeChoice.Map(argb);
         var brush = new SolidColorBrush(Color.FromArgb((byte)(argb >> 24), (byte)(argb >> 16), (byte)(argb >> 8), (byte)argb));
         brush.Freeze(); return brush;
     }
@@ -31,11 +32,12 @@ public static class Theme
     private static Brush CreateBackground()
     {
         var brush = new LinearGradientBrush { StartPoint = new(0, 0), EndPoint = new(1, 1) };
-        brush.GradientStops.Add(new(Color.FromRgb(0x13, 0x1B, 0x33), 0));
-        brush.GradientStops.Add(new(Color.FromRgb(0x0B, 0x10, 0x1D), 0.55));
-        brush.GradientStops.Add(new(Color.FromRgb(0x16, 0x10, 0x2B), 1));
+        brush.GradientStops.Add(new(Rgb(0xFF131B33), 0));
+        brush.GradientStops.Add(new(Rgb(0xFF0B101D), 0.55));
+        brush.GradientStops.Add(new(Rgb(0xFF16102B), 1));
         brush.Freeze(); return brush;
     }
+    public static Color Rgb(uint argb) { argb = ThemeChoice.Map(argb); return Color.FromArgb((byte)(argb >> 24), (byte)(argb >> 16), (byte)(argb >> 8), (byte)argb); }
 
     /// <summary>Áp nền tối, chữ sáng và thanh tiêu đề tối của Windows cho một cửa sổ phụ.</summary>
     public static void Apply(Window window)
@@ -53,7 +55,7 @@ public static class Theme
     {
         var handle = new WindowInteropHelper(window).Handle;
         if (handle == 0) { window.SourceInitialized += (_, _) => DarkTitleBar(window); return; }
-        int on = 1, caption = 0x00321B13, text = 0x00FBF5F2, border = 0x00503A2E; // COLORREF dạng 0x00BBGGRR.
+        int on = ThemeChoice.IsLight ? 0 : 1, caption = ThemeChoice.IsLight ? 0x00FBF7F4 : 0x00321B13, text = ThemeChoice.IsLight ? 0x00261912 : 0x00FBF5F2, border = ThemeChoice.IsLight ? 0x00E2DAD4 : 0x00503A2E; // COLORREF dạng 0x00BBGGRR.
         DwmSetWindowAttribute(handle, DwmUseImmersiveDarkMode, ref on, sizeof(int));
         DwmSetWindowAttribute(handle, DwmCaptionColor, ref caption, sizeof(int));
         DwmSetWindowAttribute(handle, DwmTextColor, ref text, sizeof(int));

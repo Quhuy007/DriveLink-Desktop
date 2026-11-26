@@ -5,7 +5,7 @@ Trang tải: https://github.com/Quhuy007/DriveLink-Desktop/releases/latest
 
 ## Cài trên máy mới hoặc nâng từ bản cũ
 
-Tải `QuangHuy.DriveLink-win-x64-Setup.exe`, thoát DriveLink đang chạy rồi cài. Windows x64, đã có sẵn .NET. Bản 0.7.2 và các EXE/ZIP framework cũ cần cài Setup một lần để bật cơ chế cập nhật. Có thể dùng Portable do Velopack đóng gói nếu không muốn cài; cần giữ toàn bộ cấu trúc thư mục.
+Tải `QuangHuy.DriveLink-win-x64-Setup.exe`, thoát DriveLink đang chạy rồi cài. Windows x64. Từ 1.3.0 app không kèm .NET: Setup (và trình cập nhật) tự cài .NET Desktop Runtime 10 nếu máy chưa có, sau khi hỏi người dùng. Bản 0.7.2 và các EXE/ZIP framework cũ cần cài Setup một lần để bật cơ chế cập nhật. Có thể dùng Portable do Velopack đóng gói nếu không muốn cài; cần giữ toàn bộ cấu trúc thư mục.
 
 Tài khoản, OAuth và cài đặt nằm tại `%LOCALAPPDATA%\DriveLink`, tách khỏi thư mục cài đặt. Không xóa thư mục dữ liệu này khi nâng cấp. Chưa ký mã Windows; bộ cài có thể hiển thị cảnh báo nhà phát hành.
 
@@ -21,7 +21,7 @@ Bản phát hành được build và **ký trên máy phát hành**. GitHub Acti
 
 1. Sửa mã nguồn; tăng `<Version>` trong DriveLink.csproj; cập nhật CHANGELOG.md và RELEASE-NOTES.md; chạy `dotnet run --project tests/DriveLink.Checks.csproj -c Release`.
 2. `pwsh scripts/Build-Release.ps1`: lưu bản vào `versions\vX.Y.Z` kèm ZIP mã nguồn.
-3. `pwsh scripts/Build-UpdateRelease.ps1`: tạo Setup, Portable, gói `.nupkg` và feed `releases.win-x64.json` trong `artifacts\updates-vX.Y.Z`.
+3. `pwsh scripts/Build-UpdateRelease.ps1`: tải gói của bản trước từ GitHub để tạo gói delta, rồi tạo Setup, Portable, gói `.nupkg` đầy đủ + delta và feed `releases.win-x64.json` trong `artifacts\updates-vX.Y.Z`. Gói của bản trước bị loại khỏi thư mục trước khi ký.
 4. `pwsh scripts/Sign-Release.ps1`: ký danh sách tệp bằng khóa ở `%LOCALAPPDATA%\DriveLink-Signing`. Khóa được tạo một lần bằng `scripts/New-UpdateSigningKey.ps1`; nhớ sao lưu.
 5. `pwsh scripts/Publish-Release.ps1`: kiểm chữ ký, đẩy mã nguồn lên main và gắn tag, tạo Release nháp, tải lên các tệp đã ký, rồi mới công bố. Script dùng đăng nhập GitHub trong Git Credential Manager.
 6. Kiểm tra Release và chạy `pwsh scripts/Verify-Release.ps1 -Folder <thư mục tải về>`. Máy đã cài sẽ thấy bản mới trong lần kiểm tra tiếp theo.

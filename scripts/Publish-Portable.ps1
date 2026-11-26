@@ -11,11 +11,11 @@ $zipName = "DriveLink-v$Version-$Runtime.zip"
 $zipPath = Join-Path $outputRoot $zipName
 if (Test-Path -LiteralPath $zipPath) { throw 'Gói đã tồn tại. Không ghi đè bản đã đóng gói.' }
 $publishPath = Join-Path $projectRoot "bin\Portable-v$Version-$Runtime"
-& dotnet publish (Join-Path $projectRoot 'DriveLink.csproj') -c Release -r $Runtime --self-contained true -p:PublishSingleFile=false -p:PublishTrimmed=false "-p:Version=$Version" -o $publishPath
+& dotnet publish (Join-Path $projectRoot 'DriveLink.csproj') -c Release -r $Runtime --self-contained false -p:PublishSingleFile=false -p:PublishTrimmed=false "-p:Version=$Version" -o $publishPath
 if ($LASTEXITCODE -ne 0) { throw 'Đóng gói Windows không thành công.' }
 Copy-Item -LiteralPath (Join-Path $projectRoot 'CLOUD-OAUTH.md') -Destination $publishPath
 Copy-Item -LiteralPath (Join-Path $projectRoot 'GITHUB-RELEASES.md') -Destination $publishPath
-$packageManifest = [ordered]@{ version = $Version; author = 'Quang Huy'; runtime = $Runtime; selfContained = $true; files = @{} }
+$packageManifest = [ordered]@{ version = $Version; author = 'Quang Huy'; runtime = $Runtime; selfContained = $false; framework = 'Microsoft.WindowsDesktop.App 10'; files = @{} }
 Get-ChildItem -LiteralPath $publishPath -Recurse -File | Where-Object { $_.Name -ne 'release.json' } | ForEach-Object {
  $packageManifest.files[$_.FullName.Substring($publishPath.Length + 1)] = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
 }
@@ -24,4 +24,4 @@ Add-Type -AssemblyName System.IO.Compression
 [System.IO.Compression.ZipFile]::CreateFromDirectory($publishPath, $zipPath, [System.IO.Compression.CompressionLevel]::Optimal, $false)
 $hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
 "$hash  $zipName" | Set-Content -LiteralPath (Join-Path $outputRoot "$zipName.sha256") -Encoding ascii
-Write-Output "Đã tạo gói Windows có sẵn .NET: $zipPath"
+Write-Output "Đã tạo gói Windows (cần .NET Desktop Runtime 10): $zipPath"

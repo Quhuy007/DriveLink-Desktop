@@ -58,14 +58,19 @@ public sealed partial class DriveService
 /// Ưu tiên để Google sao chép trên máy chủ (không tốn băng thông máy). Quyền tạm luôn được thu hồi, kể cả khi lỗi hoặc bị hủy.
 /// Chỉ tải qua máy khi Google chặn chia sẻ và người dùng đồng ý.
 /// </summary>
-public sealed class CrossAccountCopier(DriveService drive, IGrantJournal? journal = null)
+public sealed partial class CrossAccountCopier(DriveService drive, IGrantJournal? journal = null)
 {
     private static readonly TimeSpan[] PropagationDelays = [TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(8)];
     public Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = Task.Delay;
     public string RelayFolder { get; init; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DriveLink", "Relay");
     private const string FolderType = "application/vnd.google-apps.folder";
 
-    public async Task<CrossCopyResult> CopyAsync(Account source, Account target, DriveItem item, IProgress<string> phase,
+    public Task<CrossCopyResult> CopyAsync(Account source, Account target, DriveItem item, IProgress<string> phase,
+        Func<long, Task<bool>> confirmRelay, IProgress<TransferProgress>? relayProgress, CancellationToken ct)
+        => CopyCoreAsync(source, target, item, "root", phase, confirmRelay, relayProgress, ct);
+
+    /// <summary>Gửi chéo một tệp vào thư mục <paramref name="targetFolder"/> của tài khoản đích ("root" = Drive của tôi).</summary>
+    public async Task<CrossCopyResult> CopyCoreAsync(Account source, Account target, DriveItem item, string targetFolder, IProgress<string> phase,
         Func<long, Task<bool>> confirmRelay, IProgress<TransferProgress>? relayProgress, CancellationToken ct)
     {
         if (source.Id == target.Id || string.Equals(source.Email, target.Email, StringComparison.OrdinalIgnoreCase))
@@ -79,7 +84,7 @@ public sealed class CrossAccountCopier(DriveService drive, IGrantJournal? journa
         if (await drive.TryGetFileAsync(target, item.Id, ct) is { Capabilities.CanCopy: true })
         {
             phase.Report("Google đang sao chép trên máy chủ…");
-            var direct = await drive.CopyAsync(target, item.Id, original.Name, "root", ct);
+            var direct = await drive.CopyAsync(target, item.Id, original.Name, targetFolder, ct);
             return new(direct, CrossCopyMode.DirectAccess, 0, watch.Elapsed, Verify(original, direct), false);
         }
 
@@ -108,7 +113,7 @@ public sealed class CrossAccountCopier(DriveService drive, IGrantJournal? journa
                     if (entry is not null) journal!.Attach(entry, permission);
                     SecurityLog.Write("temporary-grant", $"Cấp quyền {role} tạm cho {masked} trên tệp {item.Id}");
                     phase.Report("Google đang sao chép trên máy chủ…");
-                    copy = await CopyWithRetryAsync(target, original, ct);
+                    copy = await CopyWithRetryAsync(target, original, targetFolder, ct);
                 }
             }
             finally
@@ -125,14 +130,14 @@ public sealed class CrossAccountCopier(DriveService drive, IGrantJournal? journa
             if (copy is not null) return new(copy, CrossCopyMode.TemporaryShare, 0, watch.Elapsed, Verify(original, copy), revokeFailed);
         }
 
-        return await RelayAsync(source, target, original, phase, confirmRelay, relayProgress, watch, ct);
+        return await RelayAsync(source, target, original, targetFolder, phase, confirmRelay, relayProgress, watch, ct);
     }
 
-    private async Task<DriveItem> CopyWithRetryAsync(Account target, DriveItem original, CancellationToken ct)
+    private async Task<DriveItem> CopyWithRetryAsync(Account target, DriveItem original, string targetFolder, CancellationToken ct)
     {
         for (var attempt = 0; ; attempt++)
         {
-            try { return await drive.CopyAsync(target, original.Id, original.Name, "root", ct); }
+            try { return await drive.CopyAsync(target, original.Id, original.Name, targetFolder, ct); }
             // Quyền mới cấp có thể chưa lan tới mọi máy chủ Google trong vài giây đầu.
             catch (DriveApiException ex) when (ex.Status == HttpStatusCode.NotFound && attempt < PropagationDelays.Length)
             {
@@ -201,7 +206,7 @@ public sealed class CrossAccountCopier(DriveService drive, IGrantJournal? journa
         return removed;
     }
 
-    private async Task<CrossCopyResult> RelayAsync(Account source, Account target, DriveItem original, IProgress<string> phase,
+    private async Task<CrossCopyResult> RelayAsync(Account source, Account target, DriveItem original, string targetFolder, IProgress<string> phase,
         Func<long, Task<bool>> confirmRelay, IProgress<TransferProgress>? relayProgress, Stopwatch watch, CancellationToken ct)
     {
         if (original.MimeType.StartsWith("application/vnd.google-apps.", StringComparison.Ordinal))
@@ -217,7 +222,7 @@ public sealed class CrossAccountCopier(DriveService drive, IGrantJournal? journa
             phase.Report("Google chặn chia sẻ tạm · đang tải tệp về máy này…");
             await drive.DownloadAsync(source, original, temp, ct, relayProgress);
             phase.Report("Đang tải lên tài khoản đích…");
-            var id = await drive.UploadAsync(target, "root", temp, relayProgress ?? new Progress<TransferProgress>(), ct);
+            var id = await drive.UploadAsync(target, targetFolder, temp, relayProgress ?? new Progress<TransferProgress>(), ct);
             var copy = await drive.GetFileAsync(target, id, ct);
             return new(copy, CrossCopyMode.Relay, original.Size * 2, watch.Elapsed, Verify(original, copy), false);
         }

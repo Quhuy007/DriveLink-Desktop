@@ -1,0 +1,6 @@
+node_modules/
+.cf/
+dist/
+.env
+*.secrets.json
+.cloudflare/

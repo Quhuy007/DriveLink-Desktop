@@ -6,7 +6,7 @@
         xmlns:ui="clr-namespace:DriveLink.Ui"
         Title="{x:Static local:AppBrand.WindowTitle}" Icon="{x:Static local:AppBrand.Icon}"
         Width="1366" Height="800" MinWidth="760" MinHeight="480" WindowStartupLocation="CenterScreen"
-        Background="#070A12" Foreground="#F2F5FB" FontSize="13.5" UseLayoutRounding="True"
+        Background="{StaticResource P_FF070A12}" Foreground="{StaticResource P_FFF2F5FB}" FontSize="13.5" UseLayoutRounding="True"
         Loaded="Window_Loaded" Closing="Window_Closing" AllowDrop="True" PreviewDragOver="Upload_DragOver" PreviewDrop="Upload_Drop" DragLeave="Upload_DragLeave"
         PreviewMouseWheel="Zoom_MouseWheel" PreviewKeyDown="Zoom_KeyDown" SizeChanged="Window_SizeChanged">
   <Window.Resources>
@@ -31,25 +31,25 @@
     <!-- Nền cực quang trôi chậm phía sau lớp kính -->
     <Canvas IsHitTestVisible="False">
       <Ellipse Width="820" Height="820" Canvas.Left="-220" Canvas.Top="-300">
-        <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#7A3B6CFF" Offset="0"/><GradientStop Color="#003B6CFF" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
+        <Ellipse.Fill><RadialGradientBrush><GradientStop Color="{StaticResource PC_7A3B6CFF}" Offset="0"/><GradientStop Color="{StaticResource PC_003B6CFF}" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
         <Ellipse.RenderTransform><TranslateTransform x:Name="BlobA"/></Ellipse.RenderTransform>
       </Ellipse>
       <Ellipse Width="900" Height="900" Canvas.Left="640" Canvas.Top="320">
-        <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#6A8B5CF6" Offset="0"/><GradientStop Color="#008B5CF6" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
+        <Ellipse.Fill><RadialGradientBrush><GradientStop Color="{StaticResource PC_6A8B5CF6}" Offset="0"/><GradientStop Color="{StaticResource PC_008B5CF6}" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
         <Ellipse.RenderTransform><TranslateTransform x:Name="BlobB"/></Ellipse.RenderTransform>
       </Ellipse>
       <Ellipse Width="680" Height="680" Canvas.Left="980" Canvas.Top="-260">
-        <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#5014B8A6" Offset="0"/><GradientStop Color="#0014B8A6" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
+        <Ellipse.Fill><RadialGradientBrush><GradientStop Color="{StaticResource PC_5014B8A6}" Offset="0"/><GradientStop Color="{StaticResource PC_0014B8A6}" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
         <Ellipse.RenderTransform><TranslateTransform x:Name="BlobC"/></Ellipse.RenderTransform>
       </Ellipse>
       <Ellipse Width="620" Height="620" Canvas.Left="120" Canvas.Top="560">
-        <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#38EC4899" Offset="0"/><GradientStop Color="#00EC4899" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
+        <Ellipse.Fill><RadialGradientBrush><GradientStop Color="{StaticResource PC_38EC4899}" Offset="0"/><GradientStop Color="{StaticResource PC_00EC4899}" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
         <Ellipse.RenderTransform><TranslateTransform x:Name="BlobD"/></Ellipse.RenderTransform>
       </Ellipse>
     </Canvas>
     <Rectangle IsHitTestVisible="False">
       <Rectangle.Fill>
-        <RadialGradientBrush RadiusX="0.75" RadiusY="0.8"><GradientStop Color="#00050810" Offset="0.5"/><GradientStop Color="#B0050810" Offset="1"/></RadialGradientBrush>
+        <RadialGradientBrush RadiusX="0.75" RadiusY="0.8"><GradientStop Color="{StaticResource PC_00050810}" Offset="0.5"/><GradientStop Color="{StaticResource PC_B0050810}" Offset="1"/></RadialGradientBrush>
       </Rectangle.Fill>
     </Rectangle>
 
@@ -95,7 +95,7 @@
                 <TextBlock Style="{StaticResource GlIcon}" Text="&#xE710;" FontSize="12"/>
               </Button>
             </StackPanel>
-            <Border x:Name="SearchHost" Grid.Column="3" Width="290" Height="36" Background="#10FFFFFF" BorderBrush="#1AFFFFFF" BorderThickness="1" CornerRadius="18" Margin="0,0,10,0">
+            <Border x:Name="SearchHost" Grid.Column="3" Width="290" Height="36" Background="{StaticResource P_10FFFFFF}" BorderBrush="{StaticResource P_1AFFFFFF}" BorderThickness="1" CornerRadius="18" Margin="0,0,10,0">
               <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <TextBlock Style="{StaticResource GlIcon}" Text="&#xE721;" FontSize="13" Foreground="{StaticResource GlMuted}" Margin="14,0,10,0"/>
@@ -112,16 +112,16 @@
                 </Grid>
               </Grid>
             </Border>
-            <Border x:Name="UpdateNotice" Grid.Column="4" Background="#1F5B8CFF" BorderBrush="#665B8CFF" BorderThickness="1" CornerRadius="17" Padding="12,0,4,0" Height="34" Margin="0,0,10,0" Visibility="Collapsed">
+            <Border x:Name="UpdateNotice" Grid.Column="4" Background="{StaticResource P_1F5B8CFF}" BorderBrush="{StaticResource P_665B8CFF}" BorderThickness="1" CornerRadius="17" Padding="12,0,4,0" Height="34" Margin="0,0,10,0" Visibility="Collapsed">
               <StackPanel Orientation="Horizontal">
-                <TextBlock Style="{StaticResource GlIcon}" Text="&#xE896;" FontSize="12" Foreground="#9DB8FF"/>
-                <TextBlock x:Name="UpdateNoticeText" FontSize="12" Margin="8,0,8,0" VerticalAlignment="Center" Foreground="#CFE0FF"/>
+                <TextBlock Style="{StaticResource GlIcon}" Text="&#xE896;" FontSize="12" Foreground="{StaticResource P_FF9DB8FF}"/>
+                <TextBlock x:Name="UpdateNoticeText" FontSize="12" Margin="8,0,8,0" VerticalAlignment="Center" Foreground="{StaticResource P_FFCFE0FF}"/>
                 <Button Style="{StaticResource GlPrimaryButton}" Height="26" Padding="10,0" Click="Updates_Click" Effect="{x:Null}">
                   <TextBlock Text="Cập nhật" FontSize="12" FontWeight="SemiBold"/>
                 </Button>
               </StackPanel>
             </Border>
-            <Border Grid.Column="5" Background="#10FFFFFF" BorderBrush="#1AFFFFFF" BorderThickness="1" CornerRadius="18" Height="36" Padding="2,0" Margin="0,0,8,0">
+            <Border Grid.Column="5" Background="{StaticResource P_10FFFFFF}" BorderBrush="{StaticResource P_1AFFFFFF}" BorderThickness="1" CornerRadius="18" Height="36" Padding="2,0" Margin="0,0,8,0">
               <StackPanel Orientation="Horizontal">
                 <Button Style="{StaticResource GlRound}" Width="30" Height="30" Click="ZoomOut_Click" ToolTip="Thu nhỏ (Ctrl + −)"><TextBlock Style="{StaticResource GlIcon}" Text="&#xE738;" FontSize="10"/></Button>
                 <Button x:Name="ZoomLabel" Style="{StaticResource GlButton}" Height="30" Padding="6,0" MinWidth="50" Background="Transparent" BorderBrush="Transparent" FontSize="12" Click="ZoomReset_Click" ToolTip="Tự điều chỉnh theo màn hình (Ctrl + 0)" Content="100%"/>
@@ -140,7 +140,7 @@
         <Border Grid.Row="1" Style="{StaticResource GlPanel}" CornerRadius="32" Margin="0,16,0,0" Padding="0,8" VerticalAlignment="Top">
           <StackPanel HorizontalAlignment="Center">
             <Grid>
-              <Border Width="44" Height="44" Margin="0,4,0,0" VerticalAlignment="Top" CornerRadius="14" Background="#335B8CFF" BorderBrush="#665B8CFF" BorderThickness="1">
+              <Border Width="44" Height="44" Margin="0,4,0,0" VerticalAlignment="Top" CornerRadius="14" Background="{StaticResource P_335B8CFF}" BorderBrush="{StaticResource P_665B8CFF}" BorderThickness="1">
                 <Border.RenderTransform><TranslateTransform x:Name="DockShift"/></Border.RenderTransform>
               </Border>
               <StackPanel>
@@ -150,6 +150,8 @@
               </StackPanel>
             </Grid>
             <Rectangle Height="1" Width="28" Fill="{StaticResource GlLine}" Margin="0,8"/>
+            <Button Style="{StaticResource GlRound}" Width="44" Height="44" Margin="0,0,0,4" Click="Lan_Click" ToolTip="Thiết bị trong mạng LAN"><TextBlock Style="{StaticResource GlIcon}" Text="&#xE968;" FontSize="16"/></Button>
+            <Button Style="{StaticResource GlRound}" Width="44" Height="44" Margin="0,0,0,4" Click="Queue_Click" ToolTip="Hàng đợi &amp; Hoạt động"><TextBlock Style="{StaticResource GlIcon}" Text="&#xE14C;" FontSize="16"/></Button>
             <Button Style="{StaticResource GlRound}" Width="44" Height="44" Click="Settings_Click" ToolTip="Cài đặt"><TextBlock Style="{StaticResource GlIcon}" Text="&#xE713;" FontSize="17"/></Button>
             <Button Style="{StaticResource GlRound}" Width="44" Height="44" Margin="0,4,0,0" Click="Updates_Click" ToolTip="Kiểm tra cập nhật">
               <Grid>
@@ -205,11 +207,11 @@
                 </StackPanel>
                 <TextBlock x:Name="StatusLabel" Grid.Column="1" Text="Chưa kết nối Google" FontSize="12" Foreground="{StaticResource GlMuted}" TextTrimming="CharacterEllipsis" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0"/>
               </Grid>
-              <Border Grid.Row="2" Background="#0BFFFFFF" BorderBrush="#14FFFFFF" BorderThickness="1" CornerRadius="16">
+              <Border Grid.Row="2" Background="{StaticResource P_0BFFFFFF}" BorderBrush="{StaticResource P_14FFFFFF}" BorderThickness="1" CornerRadius="16">
                 <Grid>
                   <DataGrid x:Name="FilesGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserReorderColumns="False"
                             HeadersVisibility="Column" GridLinesVisibility="None" RowHeight="40" ColumnHeaderHeight="34" Background="Transparent" RowBackground="Transparent" BorderThickness="0"
-                            Foreground="{StaticResource GlInk}" SelectionMode="Single" SelectionChanged="File_Changed" PreviewMouseLeftButtonUp="FileRow_Click"
+                            Foreground="{StaticResource GlInk}" SelectionMode="Extended" SelectionChanged="File_Changed" PreviewMouseLeftButtonUp="FileRow_Click"
                             EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" Margin="6,4,4,4">
                     <DataGrid.Resources>
                       <Style TargetType="DataGridColumnHeader">
@@ -220,7 +222,7 @@
                         <Setter Property="Template">
                           <Setter.Value>
                             <ControlTemplate TargetType="DataGridColumnHeader">
-                              <Border Background="Transparent" BorderBrush="#14FFFFFF" BorderThickness="0,0,0,1" Padding="{TemplateBinding Padding}">
+                              <Border Background="Transparent" BorderBrush="{StaticResource P_14FFFFFF}" BorderThickness="0,0,0,1" Padding="{TemplateBinding Padding}">
                                 <ContentPresenter VerticalAlignment="Center"/>
                               </Border>
                             </ControlTemplate>
@@ -245,8 +247,8 @@
                         <Setter Property="Background" Value="Transparent"/>
                         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
                         <Style.Triggers>
-                          <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#0FFFFFFF"/></Trigger>
-                          <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#2E5B8CFF"/></Trigger>
+                          <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{StaticResource P_0FFFFFFF}"/></Trigger>
+                          <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{StaticResource P_2E5B8CFF}"/></Trigger>
                         </Style.Triggers>
                       </Style>
                     </DataGrid.Resources>
@@ -263,7 +265,7 @@
                                              Visibility="{Binding IsPublic, Converter={StaticResource GlBoolToVis}}" ToolTip="Đang công khai: bất kỳ ai có liên kết đều mở được tệp này"/>
                                   <TextBlock Text="{Binding NameLabel}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis"/>
                                 </DockPanel>
-                                <TextBlock Text="{Binding Kind}" FontSize="10" Foreground="{StaticResource GlFaint}" Margin="0,1,0,0"/>
+                                <TextBlock Text="{Binding DetailLabel}" TextTrimming="CharacterEllipsis" FontSize="10" Foreground="{StaticResource GlFaint}" Margin="0,1,0,0"/>
                               </StackPanel>
                             </Grid>
                           </DataTemplate>
@@ -275,8 +277,8 @@
                     </DataGrid.Columns>
                   </DataGrid>
                   <StackPanel x:Name="EmptyPanel" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="420" Margin="20">
-                    <Border Width="64" Height="64" CornerRadius="32" Background="#1F5B8CFF" BorderBrush="#4D5B8CFF" BorderThickness="1" HorizontalAlignment="Center">
-                      <TextBlock Style="{StaticResource GlIcon}" Text="&#xE898;" FontSize="26" Foreground="#9DB8FF" HorizontalAlignment="Center"/>
+                    <Border Width="64" Height="64" CornerRadius="32" Background="{StaticResource P_1F5B8CFF}" BorderBrush="{StaticResource P_4D5B8CFF}" BorderThickness="1" HorizontalAlignment="Center">
+                      <TextBlock Style="{StaticResource GlIcon}" Text="&#xE898;" FontSize="26" Foreground="{StaticResource P_FF9DB8FF}" HorizontalAlignment="Center"/>
                     </Border>
                     <TextBlock x:Name="EmptyTitle" Text="Sẵn sàng cho file đầu tiên" FontFamily="{StaticResource GlDisplayFont}" FontSize="19" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,14,0,0"/>
                     <TextBlock x:Name="EmptyDescription" Text="Thêm tài khoản Google, tạo không gian và mời tài khoản trên máy còn lại để bắt đầu." TextWrapping="Wrap" TextAlignment="Center" Foreground="{StaticResource GlMuted}" Margin="0,10,0,0" LineHeight="21"/>
@@ -323,13 +325,13 @@
                   <Grid Grid.Row="1" VerticalAlignment="Center" Margin="0,6">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <Grid x:Name="OrbHost" Width="76" Height="76">
-                      <Ellipse x:Name="Pulse1" Width="56" Height="56" Stroke="#995B8CFF" StrokeThickness="2" Opacity="0" RenderTransformOrigin="0.5,0.5"><Ellipse.RenderTransform><ScaleTransform x:Name="Pulse1Scale"/></Ellipse.RenderTransform></Ellipse>
-                      <Border x:Name="Orb" Width="56" Height="56" CornerRadius="28" Background="{StaticResource GlAccentFill}" BorderBrush="#8CFFFFFF" BorderThickness="1" RenderTransformOrigin="0.5,0.5">
+                      <Ellipse x:Name="Pulse1" Width="56" Height="56" Stroke="{StaticResource P_995B8CFF}" StrokeThickness="2" Opacity="0" RenderTransformOrigin="0.5,0.5"><Ellipse.RenderTransform><ScaleTransform x:Name="Pulse1Scale"/></Ellipse.RenderTransform></Ellipse>
+                      <Border x:Name="Orb" Width="56" Height="56" CornerRadius="28" Background="{StaticResource GlAccentFill}" BorderBrush="{StaticResource P_8CFFFFFF}" BorderThickness="1" RenderTransformOrigin="0.5,0.5">
                         <Border.RenderTransform><ScaleTransform x:Name="OrbScale"/></Border.RenderTransform>
-                        <Border.Effect><DropShadowEffect Color="#5B8CFF" BlurRadius="26" ShadowDepth="0" Opacity="0.65"/></Border.Effect>
+                        <Border.Effect><DropShadowEffect Color="{StaticResource PC_FF5B8CFF}" BlurRadius="26" ShadowDepth="0" Opacity="0.65"/></Border.Effect>
                         <Grid>
                           <Border CornerRadius="28">
-                            <Border.Background><LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1"><GradientStop Color="#59FFFFFF" Offset="0"/><GradientStop Color="#00FFFFFF" Offset="0.55"/></LinearGradientBrush></Border.Background>
+                            <Border.Background><LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1"><GradientStop Color="{StaticResource PC_59FFFFFF}" Offset="0"/><GradientStop Color="{StaticResource PC_00FFFFFF}" Offset="0.55"/></LinearGradientBrush></Border.Background>
                           </Border>
                           <TextBlock Style="{StaticResource GlIcon}" Text="&#xE898;" FontSize="22" Foreground="White" HorizontalAlignment="Center"/>
                         </Grid>
@@ -344,7 +346,7 @@
                     <Button x:Name="FileUploadButton" Style="{StaticResource GlPrimaryButton}" Margin="0,0,4,0" Padding="8,0" Click="Upload_Click" ToolTip="Chọn file để gửi">
                       <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource GlIcon}" Text="&#xE8E5;" FontSize="13"/><TextBlock Text="Chọn tệp" Margin="7,0,0,0" FontWeight="SemiBold"/></StackPanel>
                     </Button>
-                    <Button x:Name="FolderUploadButton" Style="{StaticResource GlButton}" Margin="4,0,0,0" Padding="8,0" Click="UploadFolder_Click" ToolTip="Chọn thư mục để nén rồi gửi">
+                    <Button x:Name="FolderUploadButton" Style="{StaticResource GlButton}" Margin="4,0,0,0" Padding="8,0" Click="UploadFolder_Click" ToolTip="Chọn thư mục để gửi (nén thành một tệp hoặc giữ nguyên cấu trúc, đổi trong Cài đặt)">
                       <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource GlIcon}" Text="&#xE838;" FontSize="13"/><TextBlock Text="Thư mục" Margin="7,0,0,0"/></StackPanel>
                     </Button>
                   </UniformGrid>
@@ -359,7 +361,7 @@
                   </Grid.RowDefinitions>
                   <Grid>
                     <TextBlock Text="Truyền tải" Style="{StaticResource GlTitle}"/>
-                    <Border x:Name="LiveChip" HorizontalAlignment="Right" Background="#14FFFFFF" CornerRadius="10" Padding="8,2" VerticalAlignment="Center">
+                    <Border x:Name="LiveChip" HorizontalAlignment="Right" Background="{StaticResource P_14FFFFFF}" CornerRadius="10" Padding="8,2" VerticalAlignment="Center" Cursor="Hand" MouseLeftButtonUp="Queue_Click" ToolTip="Xem hàng đợi và hoạt động">
                       <StackPanel Orientation="Horizontal">
                         <Ellipse x:Name="LiveDot" Width="7" Height="7" Fill="{StaticResource GlFaint}" VerticalAlignment="Center"/>
                         <TextBlock x:Name="LiveText" Text="Rảnh" FontSize="11.5" Foreground="{StaticResource GlMuted}" Margin="6,0,0,0"/>
@@ -369,7 +371,7 @@
                   <UniformGrid Grid.Row="1" Columns="2" Margin="0,12,0,0">
                     <StackPanel>
                       <TextBlock Text="TẢI LÊN" Style="{StaticResource GlLabel}"/>
-                      <TextBlock x:Name="UploadSpeed" Text="0 B/s" FontFamily="{StaticResource GlMonoFont}" FontSize="17" Foreground="#8FB0FF" Margin="0,3,0,0"/>
+                      <TextBlock x:Name="UploadSpeed" Text="0 B/s" FontFamily="{StaticResource GlMonoFont}" FontSize="17" Foreground="{StaticResource P_FF8FB0FF}" Margin="0,3,0,0"/>
                     </StackPanel>
                     <StackPanel>
                       <TextBlock Text="TẢI VỀ" Style="{StaticResource GlLabel}"/>
@@ -378,10 +380,10 @@
                   </UniformGrid>
                   <Canvas x:Name="Spark" Grid.Row="2" MinHeight="40" Margin="0,10,0,6" ClipToBounds="True" SizeChanged="Spark_SizeChanged">
                     <Polygon x:Name="SparkUpFill">
-                      <Polygon.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#665B8CFF" Offset="0"/><GradientStop Color="#005B8CFF" Offset="1"/></LinearGradientBrush></Polygon.Fill>
+                      <Polygon.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="{StaticResource PC_665B8CFF}" Offset="0"/><GradientStop Color="{StaticResource PC_005B8CFF}" Offset="1"/></LinearGradientBrush></Polygon.Fill>
                     </Polygon>
                     <Polyline x:Name="SparkDown" Stroke="{StaticResource GlGreen}" StrokeThickness="1.5" Opacity="0.8" StrokeLineJoin="Round"/>
-                    <Polyline x:Name="SparkUp" Stroke="#8FB0FF" StrokeThickness="2" StrokeLineJoin="Round"/>
+                    <Polyline x:Name="SparkUp" Stroke="{StaticResource P_FF8FB0FF}" StrokeThickness="2" StrokeLineJoin="Round"/>
                   </Canvas>
                   <StackPanel Grid.Row="3" Margin="0,6,0,0">
                     <Grid>
@@ -389,7 +391,7 @@
                       <TextBlock x:Name="UploadLabel" Text="Gửi: sẵn sàng" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                       <Button x:Name="CancelUploads" Grid.Column="1" Style="{StaticResource GlButton}" Height="24" Padding="10,0" FontSize="11.5" Margin="8,0,0,0" Content="Hủy gửi" IsEnabled="False" Click="CancelUploads_Click"/>
                     </Grid>
-                    <ProgressBar x:Name="UploadProgress" Style="{StaticResource GlProgress}" Foreground="#8FB0FF" Minimum="0" Maximum="100" Margin="0,6,0,0"/>
+                    <ProgressBar x:Name="UploadProgress" Style="{StaticResource GlProgress}" Foreground="{StaticResource P_FF8FB0FF}" Minimum="0" Maximum="100" Margin="0,6,0,0"/>
                   </StackPanel>
                   <StackPanel Grid.Row="4" Margin="0,12,0,0">
                     <Grid>
@@ -432,14 +434,14 @@
                   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                   <Grid>
                     <TextBlock Text="Gửi chéo" Style="{StaticResource GlTitle}"/>
-                    <Border HorizontalAlignment="Right" Background="#1A4ADE80" BorderBrush="#554ADE80" BorderThickness="1" CornerRadius="11" Padding="8,1" VerticalAlignment="Center" ToolTip="Google sao chép trên máy chủ nên không tốn băng thông máy này">
+                    <Border HorizontalAlignment="Right" Background="{StaticResource P_1A4ADE80}" BorderBrush="{StaticResource P_554ADE80}" BorderThickness="1" CornerRadius="11" Padding="8,1" VerticalAlignment="Center" ToolTip="Google sao chép trên máy chủ nên không tốn băng thông máy này">
                       <TextBlock Text="0 MB qua máy" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource GlGreen}"/>
                     </Border>
                   </Grid>
-                  <Border Grid.Row="1" Margin="0,10,0,0" Background="#1F5B8CFF" BorderBrush="#4D5B8CFF" BorderThickness="1" CornerRadius="12" Padding="10,6">
+                  <Border Grid.Row="1" Margin="0,10,0,0" Background="{StaticResource P_1F5B8CFF}" BorderBrush="{StaticResource P_4D5B8CFF}" BorderThickness="1" CornerRadius="12" Padding="10,6">
                     <Grid>
                       <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                      <TextBlock Style="{StaticResource GlIcon}" Text="&#xE8A5;" FontSize="14" Foreground="#9DB8FF"/>
+                      <TextBlock Style="{StaticResource GlIcon}" Text="&#xE8A5;" FontSize="14" Foreground="{StaticResource P_FF9DB8FF}"/>
                       <StackPanel Grid.Column="1" Margin="9,0,0,0">
                         <TextBlock x:Name="CrossSource" Text="Chọn một tệp trong danh sách" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                         <TextBlock x:Name="CrossSourceMeta" FontSize="11" Foreground="{StaticResource GlMuted}" TextTrimming="CharacterEllipsis"/>
@@ -448,7 +450,7 @@
                   </Border>
                   <Grid Grid.Row="2" Height="16" Margin="12,6,12,0">
                     <Rectangle Height="2" RadiusX="1" RadiusY="1" VerticalAlignment="Center" Opacity="0.45">
-                      <Rectangle.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#5B8CFF" Offset="0"/><GradientStop Color="#A78BFA" Offset="1"/></LinearGradientBrush></Rectangle.Fill>
+                      <Rectangle.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="{StaticResource PC_FF5B8CFF}" Offset="0"/><GradientStop Color="{StaticResource PC_FFA78BFA}" Offset="1"/></LinearGradientBrush></Rectangle.Fill>
                     </Rectangle>
                     <Canvas x:Name="FlowCanvas" ClipToBounds="True" SizeChanged="Flow_SizeChanged"/>
                   </Grid>
@@ -457,7 +459,7 @@
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <Button x:Name="CrossTargetButton" Style="{StaticResource GlButton}" Height="34" Padding="10,0" Click="CrossTarget_Click" HorizontalContentAlignment="Left">
                       <StackPanel Orientation="Horizontal">
-                        <TextBlock Style="{StaticResource GlIcon}" Text="&#xE77B;" FontSize="13" Foreground="#C4B5FD"/>
+                        <TextBlock Style="{StaticResource GlIcon}" Text="&#xE77B;" FontSize="13" Foreground="{StaticResource P_FFC4B5FD}"/>
                         <TextBlock x:Name="CrossTargetText" Text="Chọn tài khoản đích" Margin="8,0,0,0" FontSize="12.5" MaxWidth="150" TextTrimming="CharacterEllipsis"/>
                       </StackPanel>
                     </Button>
@@ -479,7 +481,7 @@
                   <Grid Grid.Row="1" VerticalAlignment="Center">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <Grid Width="78" Height="78">
-                      <Ellipse Stroke="#1FFFFFFF" StrokeThickness="7"/>
+                      <Ellipse Stroke="{StaticResource P_1FFFFFFF}" StrokeThickness="7"/>
                       <Ellipse x:Name="QuotaRing" Stroke="{StaticResource GlAccent}" StrokeThickness="7" StrokeDashCap="Round" Opacity="0" RenderTransformOrigin="0.5,0.5"><Ellipse.RenderTransform><RotateTransform Angle="-90"/></Ellipse.RenderTransform></Ellipse>
                       <TextBlock x:Name="QuotaPercent" Text="—" FontFamily="{StaticResource GlDisplayFont}" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Grid>
@@ -496,10 +498,10 @@
       </Grid>
 
       <!-- Lớp thả tệp phủ toàn cửa sổ -->
-      <Border x:Name="DropOverlay" Panel.ZIndex="20" Background="#A60A0F1E" BorderBrush="{StaticResource GlAccent}" BorderThickness="2" CornerRadius="28" Margin="12" Visibility="Collapsed" IsHitTestVisible="False">
+      <Border x:Name="DropOverlay" Panel.ZIndex="20" Background="{StaticResource P_A60A0F1E}" BorderBrush="{StaticResource GlAccent}" BorderThickness="2" CornerRadius="28" Margin="12" Visibility="Collapsed" IsHitTestVisible="False">
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-          <Border Width="120" Height="120" CornerRadius="60" Background="{StaticResource GlAccentFill}" BorderBrush="#8CFFFFFF" BorderThickness="1" HorizontalAlignment="Center">
-            <Border.Effect><DropShadowEffect Color="#5B8CFF" BlurRadius="48" ShadowDepth="0" Opacity="0.75"/></Border.Effect>
+          <Border Width="120" Height="120" CornerRadius="60" Background="{StaticResource GlAccentFill}" BorderBrush="{StaticResource P_8CFFFFFF}" BorderThickness="1" HorizontalAlignment="Center">
+            <Border.Effect><DropShadowEffect Color="{StaticResource PC_FF5B8CFF}" BlurRadius="48" ShadowDepth="0" Opacity="0.75"/></Border.Effect>
             <TextBlock Style="{StaticResource GlIcon}" Text="&#xE898;" FontSize="44" Foreground="White" HorizontalAlignment="Center"/>
           </Border>
           <TextBlock Text="Thả để gửi vào không gian đang chọn" FontFamily="{StaticResource GlDisplayFont}" FontSize="26" FontWeight="SemiBold" Margin="0,22,0,0" HorizontalAlignment="Center"/>
@@ -509,7 +511,7 @@
 
       <!-- "Đảo" thông báo: viên thuốc nổi ở giữa phía trên, co giãn theo trạng thái -->
       <Border x:Name="Island" Panel.ZIndex="30" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,74,0,0" Width="160" Height="44" Opacity="0" Visibility="Collapsed"
-              CornerRadius="24" Background="#F00C111D" BorderBrush="{StaticResource GlRim}" BorderThickness="1" ClipToBounds="True" IsHitTestVisible="False">
+              CornerRadius="24" Background="{StaticResource P_F00C111D}" BorderBrush="{StaticResource GlRim}" BorderThickness="1" ClipToBounds="True" IsHitTestVisible="False">
         <Border.Effect><DropShadowEffect BlurRadius="30" ShadowDepth="8" Direction="270" Opacity="0.6" Color="Black"/></Border.Effect>
         <Grid Margin="16,0">
           <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>

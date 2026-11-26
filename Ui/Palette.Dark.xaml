@@ -1,0 +1,91 @@
+<!-- Bảng màu tối (mặc định). Tạo bởi scripts (đổi màu bằng quy tắc trong Ui/ThemeChoice.cs). -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <SolidColorBrush x:Key="GlBase" Color="#FF070A12"/>
+  <SolidColorBrush x:Key="GlInk" Color="#FFF2F5FB"/>
+  <SolidColorBrush x:Key="GlMuted" Color="#FFA6B0C4"/>
+  <SolidColorBrush x:Key="GlFaint" Color="#FF717B93"/>
+  <SolidColorBrush x:Key="GlAccent" Color="#FF5B8CFF"/>
+  <SolidColorBrush x:Key="GlViolet" Color="#FFA78BFA"/>
+  <SolidColorBrush x:Key="GlTeal" Color="#FF2DD4BF"/>
+  <SolidColorBrush x:Key="GlGreen" Color="#FF4ADE80"/>
+  <SolidColorBrush x:Key="GlAmber" Color="#FFFBBF24"/>
+  <SolidColorBrush x:Key="GlRose" Color="#FFFB7185"/>
+  <SolidColorBrush x:Key="GlTint" Color="#990A0F1C"/>
+  <SolidColorBrush x:Key="GlLine" Color="#1FFFFFFF"/>
+  <LinearGradientBrush x:Key="GlFill" StartPoint="0,0" EndPoint="1,1"> <GradientStop Color="#22FFFFFF" Offset="0"/> <GradientStop Color="#0AFFFFFF" Offset="0.55"/> <GradientStop Color="#12FFFFFF" Offset="1"/> </LinearGradientBrush>
+  <LinearGradientBrush x:Key="GlRim" StartPoint="0,0" EndPoint="1,1"> <GradientStop Color="#80FFFFFF" Offset="0"/> <GradientStop Color="#1AFFFFFF" Offset="0.35"/> <GradientStop Color="#0AFFFFFF" Offset="0.65"/> <GradientStop Color="#45FFFFFF" Offset="1"/> </LinearGradientBrush>
+  <LinearGradientBrush x:Key="GlSheen" StartPoint="0,0" EndPoint="0,1"> <GradientStop Color="#16FFFFFF" Offset="0"/> <GradientStop Color="#00FFFFFF" Offset="0.45"/> </LinearGradientBrush>
+  <LinearGradientBrush x:Key="GlPanelFill" StartPoint="0,0" EndPoint="0,1"> <GradientStop Color="#C0171E30" Offset="0"/> <GradientStop Color="#A80E1422" Offset="1"/> </LinearGradientBrush>
+  <LinearGradientBrush x:Key="GlAccentFill" StartPoint="0,0" EndPoint="1,1"> <GradientStop Color="#FF6A98FF" Offset="0"/> <GradientStop Color="#FF8B5CF6" Offset="1"/> </LinearGradientBrush>
+  <SolidColorBrush x:Key="Ink" Color="#FFF2F5FB"/>
+  <SolidColorBrush x:Key="Muted" Color="#FFA6B0C4"/>
+  <SolidColorBrush x:Key="Faint" Color="#FF717B93"/>
+  <SolidColorBrush x:Key="Accent" Color="#FF5B8CFF"/>
+  <SolidColorBrush x:Key="FieldBackground" Color="#14FFFFFF"/>
+  <SolidColorBrush x:Key="FieldBorder" Color="#33FFFFFF"/>
+  <SolidColorBrush x:Key="PopupBackground" Color="#F5141A29"/>
+  <SolidColorBrush x:Key="PopupBorder" Color="#33FFFFFF"/>
+  <SolidColorBrush x:Key="HighlightFill" Color="#405B8CFF"/>
+  <LinearGradientBrush x:Key="AccentFill" StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#FF6A98FF" Offset="0"/><GradientStop Color="#FF8B5CF6" Offset="1"/></LinearGradientBrush>
+  <LinearGradientBrush x:Key="Sheen" StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#16FFFFFF" Offset="0"/><GradientStop Color="#00FFFFFF" Offset="0.5"/></LinearGradientBrush>
+  <Color x:Key="PC_00050810">#00050810</Color>
+  <Color x:Key="PC_0014B8A6">#0014B8A6</Color>
+  <Color x:Key="PC_003B6CFF">#003B6CFF</Color>
+  <Color x:Key="PC_005B8CFF">#005B8CFF</Color>
+  <Color x:Key="PC_008B5CF6">#008B5CF6</Color>
+  <Color x:Key="PC_00EC4899">#00EC4899</Color>
+  <Color x:Key="PC_00FFFFFF">#00FFFFFF</Color>
+  <Color x:Key="PC_38EC4899">#38EC4899</Color>
+  <Color x:Key="PC_5014B8A6">#5014B8A6</Color>
+  <Color x:Key="PC_59FFFFFF">#59FFFFFF</Color>
+  <Color x:Key="PC_665B8CFF">#665B8CFF</Color>
+  <Color x:Key="PC_6A8B5CF6">#6A8B5CF6</Color>
+  <Color x:Key="PC_7A3B6CFF">#7A3B6CFF</Color>
+  <Color x:Key="PC_B0050810">#B0050810</Color>
+  <Color x:Key="PC_FF5B8CFF">#FF5B8CFF</Color>
+  <Color x:Key="PC_FFA78BFA">#FFA78BFA</Color>
+  <SolidColorBrush x:Key="P_0AFFFFFF" Color="#0AFFFFFF"/>
+  <SolidColorBrush x:Key="P_0BFFFFFF" Color="#0BFFFFFF"/>
+  <SolidColorBrush x:Key="P_0DFFFFFF" Color="#0DFFFFFF"/>
+  <SolidColorBrush x:Key="P_0EFFFFFF" Color="#0EFFFFFF"/>
+  <SolidColorBrush x:Key="P_0FFFFFFF" Color="#0FFFFFFF"/>
+  <SolidColorBrush x:Key="P_10FFFFFF" Color="#10FFFFFF"/>
+  <SolidColorBrush x:Key="P_12FFFFFF" Color="#12FFFFFF"/>
+  <SolidColorBrush x:Key="P_14FFFFFF" Color="#14FFFFFF"/>
+  <SolidColorBrush x:Key="P_1A4ADE80" Color="#1A4ADE80"/>
+  <SolidColorBrush x:Key="P_1AFFFFFF" Color="#1AFFFFFF"/>
+  <SolidColorBrush x:Key="P_1CFFFFFF" Color="#1CFFFFFF"/>
+  <SolidColorBrush x:Key="P_1F5B8CFF" Color="#1F5B8CFF"/>
+  <SolidColorBrush x:Key="P_1FFFFFFF" Color="#1FFFFFFF"/>
+  <SolidColorBrush x:Key="P_22FFFFFF" Color="#22FFFFFF"/>
+  <SolidColorBrush x:Key="P_24FFFFFF" Color="#24FFFFFF"/>
+  <SolidColorBrush x:Key="P_2E5B8CFF" Color="#2E5B8CFF"/>
+  <SolidColorBrush x:Key="P_2EFFFFFF" Color="#2EFFFFFF"/>
+  <SolidColorBrush x:Key="P_335B8CFF" Color="#335B8CFF"/>
+  <SolidColorBrush x:Key="P_38FFFFFF" Color="#38FFFFFF"/>
+  <SolidColorBrush x:Key="P_4D5B8CFF" Color="#4D5B8CFF"/>
+  <SolidColorBrush x:Key="P_4DFFFFFF" Color="#4DFFFFFF"/>
+  <SolidColorBrush x:Key="P_554ADE80" Color="#554ADE80"/>
+  <SolidColorBrush x:Key="P_66000000" Color="#66000000"/>
+  <SolidColorBrush x:Key="P_665B8CFF" Color="#665B8CFF"/>
+  <SolidColorBrush x:Key="P_66FFFFFF" Color="#66FFFFFF"/>
+  <SolidColorBrush x:Key="P_8CFFFFFF" Color="#8CFFFFFF"/>
+  <SolidColorBrush x:Key="P_995B8CFF" Color="#995B8CFF"/>
+  <SolidColorBrush x:Key="P_A60A0F1E" Color="#A60A0F1E"/>
+  <SolidColorBrush x:Key="P_F00C111D" Color="#F00C111D"/>
+  <SolidColorBrush x:Key="P_FF070A12" Color="#FF070A12"/>
+  <SolidColorBrush x:Key="P_FF0B1020" Color="#FF0B1020"/>
+  <SolidColorBrush x:Key="P_FF5B8CFF" Color="#FF5B8CFF"/>
+  <SolidColorBrush x:Key="P_FF8FB0FF" Color="#FF8FB0FF"/>
+  <SolidColorBrush x:Key="P_FF9DB8FF" Color="#FF9DB8FF"/>
+  <SolidColorBrush x:Key="P_FFA6B0C4" Color="#FFA6B0C4"/>
+  <SolidColorBrush x:Key="P_FFC4B5FD" Color="#FFC4B5FD"/>
+  <SolidColorBrush x:Key="P_FFCFE0FF" Color="#FFCFE0FF"/>
+  <SolidColorBrush x:Key="P_FFF2F5FB" Color="#FFF2F5FB"/>
+  <SolidColorBrush x:Key="P_FFFBBF24" Color="#FFFBBF24"/>
+  <SolidColorBrush x:Key="P_80FFFFFF" Color="#80FFFFFF"/>
+  <SolidColorBrush x:Key="P_FFE5484D" Color="#FFE5484D"/>
+  <SolidColorBrush x:Key="GlHover" Color="#FFFFFFFF"/>
+  <SolidColorBrush x:Key="GlDockSelected" Color="#FFFFFFFF"/>
+</ResourceDictionary>

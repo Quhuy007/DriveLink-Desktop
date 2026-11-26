@@ -10,3 +10,10 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+  - package-ecosystem: npm
+    directory: "/cloud/supabase-keepalive"
+    schedule:
+      interval: weekly
+    # Chỉ nhận bản đã phát hành ít nhất 14 ngày để tránh gói vừa bị nhiễm độc.
+    cooldown:
+      default-days: 14

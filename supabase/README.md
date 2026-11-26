@@ -1,5 +1,7 @@
 # Supabase cho DriveLink — Quang Huy
 
+**Giữ project không bị tạm dừng (gói Free):** chạy `keepalive.sql` một lần. Cloudflare Worker trong `cloud/supabase-keepalive` gọi hàm này mỗi 2 ngày. Xem `cloud/supabase-keepalive/README.md`.
+
 **DriveLink 0.7.0:** nhận gói mã hóa trực tiếp không đăng nhập reader; Ctrl+Shift+A mở hộp mật khẩu admin. Dự án đã nâng cấp 0.6.0 cần chạy `upgrade-0.7.0.sql`. Hướng dẫn hiện hành nằm ở `CLOUD-OAUTH.md`; phần bên dưới ghi lại quy trình tạo tài khoản ban đầu của 0.5.0.
 
 **DriveLink 0.6.0:** giao diện mới có tên Cloud lấy OAuth và kết nối đã được nhúng trong mã nguồn. Hướng dẫn bên dưới là quy trình 0.5.0 dùng để tạo/cấp quyền tài khoản lần đầu. Nếu đã có dự án, chạy `upgrade-0.6.0.sql` rồi làm theo `CLOUD-OAUTH.md` ở thư mục bản phát hành; không cần nhập URL/key trong giao diện mới. Setup mới đã bao gồm nâng cấp, không chạy lại setup cũ từ bản 0.5.0 sau khi nâng cấp.
