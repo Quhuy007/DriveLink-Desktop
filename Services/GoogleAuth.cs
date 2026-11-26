@@ -4,9 +4,10 @@ using System.Text;
 using System.Text.Json;
 namespace DriveLink.Services;
 
-public sealed class GoogleAuth(HttpClient http, SavedState state, SecureStore store)
+public sealed class GoogleAuth(HttpClient http, SavedState state, SecureStore store, TokenVault? tokenVault = null)
 {
     private readonly SemaphoreSlim refreshLock = new(1);
+    private readonly TokenVault vault = tokenVault ?? TokenVault.Shared;
     private static string Base64Url(byte[] data) => Convert.ToBase64String(data).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     public async Task<Account> ConnectAsync(CancellationToken ct)
     {
@@ -47,7 +48,7 @@ public sealed class GoogleAuth(HttpClient http, SavedState state, SecureStore st
         var account = state.Accounts.FirstOrDefault(x => x.Id == id) ?? new Account { Id = id };
         account.Email = info.RootElement.GetProperty("email").GetString()!;
         account.Name = info.RootElement.TryGetProperty("name", out var name) ? name.GetString() ?? account.Email : account.Email;
-        ApplyTokens(account, tokens.RootElement);
+        await ApplyTokensAsync(account, tokens.RootElement, timeout.Token);
         if (string.IsNullOrEmpty(account.RefreshToken)) throw new InvalidOperationException("Chưa nhận được quyền truy cập lâu dài. Hãy kết nối lại và cấp quyền.");
         if (!state.Accounts.Contains(account)) state.Accounts.Add(account);
         state.SelectedAccountId = account.Id;
@@ -75,22 +76,37 @@ public sealed class GoogleAuth(HttpClient http, SavedState state, SecureStore st
         await refreshLock.WaitAsync(ct);
         try
         {
-            if (account.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(2)) return account.AccessToken;
+            if (account.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(2)) return await vault.UnprotectAsync(account.AccessToken, ct);
             using var tokens = await ExchangeAsync(new()
             {
                 ["client_id"] = state.Config.ClientId, ["client_secret"] = state.Config.ClientSecret,
-                ["refresh_token"] = account.RefreshToken, ["grant_type"] = "refresh_token"
+                ["refresh_token"] = await vault.UnprotectAsync(account.RefreshToken, ct), ["grant_type"] = "refresh_token"
             }, ct);
-            ApplyTokens(account, tokens.RootElement);
+            var access = await ApplyTokensAsync(account, tokens.RootElement, ct);
             store.Save(state);
-            return account.AccessToken;
+            return access;
         }
         finally { refreshLock.Release(); }
     }
     public async Task RevokeAsync(Account account, CancellationToken ct)
     {
-        using var response = await http.PostAsync("https://oauth2.googleapis.com/revoke", new FormUrlEncodedContent(new Dictionary<string, string> { ["token"] = account.RefreshToken }), ct);
+        var refresh = await vault.UnprotectAsync(account.RefreshToken, ct);
+        using var response = await http.PostAsync("https://oauth2.googleapis.com/revoke", new FormUrlEncodedContent(new Dictionary<string, string> { ["token"] = refresh }), ct);
         response.EnsureSuccessStatusCode();
+        SecurityLog.Write("token-revoked", "Đã thu hồi quyền của DriveLink trên tài khoản " + DisplayPrivacy.MaskEmail(account.Email));
+    }
+    /// <summary>Mã hóa lại các token cũ (lưu trước bản 1.2.0) bằng kho token. Trả về số tài khoản đã chuyển.</summary>
+    public async Task<int> ProtectStoredTokensAsync(CancellationToken ct)
+    {
+        var changed = 0;
+        foreach (var account in state.Accounts.Where(x => !TokenVault.IsProtected(x.RefreshToken) || !TokenVault.IsProtected(x.AccessToken)).ToList())
+        {
+            account.RefreshToken = await vault.ProtectAsync(account.RefreshToken, ct);
+            account.AccessToken = await vault.ProtectAsync(account.AccessToken, ct);
+            changed++;
+        }
+        if (changed > 0) { store.Save(state); SecurityLog.Write("token-protection", $"Đã mã hóa lại token của {changed} tài khoản bằng {await vault.DescribeAsync()}"); }
+        return changed;
     }
     private async Task<JsonDocument> ExchangeAsync(Dictionary<string, string> values, CancellationToken ct)
     {
@@ -98,11 +114,14 @@ public sealed class GoogleAuth(HttpClient http, SavedState state, SecureStore st
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Không thể xác thực Google. Kiểm tra cấu hình OAuth hoặc kết nối lại tài khoản (quyền có thể đã hết hạn/thu hồi).");
         return JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
     }
-    private static void ApplyTokens(Account account, JsonElement data)
+    /// <summary>Lưu token mới ở dạng đã mã hóa; trả về access token dạng rõ để dùng ngay, không lưu dạng rõ.</summary>
+    private async Task<string> ApplyTokensAsync(Account account, JsonElement data, CancellationToken ct)
     {
-        account.AccessToken = data.GetProperty("access_token").GetString()!;
+        var access = data.GetProperty("access_token").GetString()!;
+        account.AccessToken = await vault.ProtectAsync(access, ct);
         account.ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(data.GetProperty("expires_in").GetInt32());
-        if (data.TryGetProperty("refresh_token", out var refresh)) account.RefreshToken = refresh.GetString()!;
+        if (data.TryGetProperty("refresh_token", out var refresh)) account.RefreshToken = await vault.ProtectAsync(refresh.GetString()!, ct);
+        return access;
     }
     public static Dictionary<string, string> ParseQuery(string query) => query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
         .Select(x => x.Split('=', 2)).GroupBy(x => Uri.UnescapeDataString(x[0])).ToDictionary(x => x.Key, x => Uri.UnescapeDataString(x.Last().ElementAtOrDefault(1)?.Replace('+', ' ') ?? ""));

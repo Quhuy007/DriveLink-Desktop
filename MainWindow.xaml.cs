@@ -47,6 +47,7 @@ public partial class MainWindow : Window
     private int filter;
     private DateTimeOffset lastSpaceRefresh;
     private readonly CrossAccountCopier copier;
+    private readonly GrantJournal grantJournal;
     private readonly bool motion = SystemParameters.ClientAreaAnimation;
     private readonly DispatcherTimer islandTimer = new();
     private readonly List<double> upHistory = [], downHistory = [];
@@ -87,7 +88,8 @@ public partial class MainWindow : Window
         }
         auth = new GoogleAuth(http, state, store);
         drive = new DriveService(http, auth.GetTokenAsync);
-        copier = new CrossAccountCopier(drive);
+        grantJournal = new GrantJournal(store.Folder);
+        copier = new CrossAccountCopier(drive, grantJournal);
         history = new LocalFileHistory(state, store);
         GlassCard.Motion = motion;
         for (var i = 0; i < SparkPoints; i++) { upHistory.Add(0); downHistory.Add(0); }
@@ -145,7 +147,31 @@ public partial class MainWindow : Window
         if (Environment.GetCommandLineArgs().Contains("--background") && state.Settings.RunInBackground) HideToTray();
         if (state.Settings.CheckUpdatesOnStartup) _ = appUpdates.CheckAsync(lifetime.Token);
         updateTimer.Start();
+        await ProtectTokensAsync();
         await RefreshAsync(); poll.Start();
+        await RecoverTemporaryGrantsAsync();
+    }
+    /// <summary>Token lưu từ bản cũ được mã hóa lại bằng Windows Hello (hoặc khóa riêng trên máy). Người dùng hủy Hello thì để lần sau.</summary>
+    private async Task ProtectTokensAsync()
+    {
+        try { await auth.ProtectStoredTokensAsync(lifetime.Token); }
+        catch (TokenLockedException ex) { StatusLabel.Text = ex.Message; }
+        catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or IOException or UnauthorizedAccessException) { StatusLabel.Text = "Chưa mã hóa lại được token đã lưu: " + ex.Message; }
+    }
+    /// <summary>Thu hồi quyền tạm còn sót khi lần trước app bị tắt ngang giữa lúc gửi chéo, và dọn thư mục tạm của lần tải qua máy.</summary>
+    private async Task RecoverTemporaryGrantsAsync()
+    {
+        if (preview || lifetime.IsCancellationRequested) return;
+        copier.CleanRelayLeftovers();
+        if (grantJournal.Pending().Count == 0) return;
+        try
+        {
+            var recovered = await copier.RecoverAsync(id => state.Accounts.FirstOrDefault(x => x.Id == id), lifetime.Token);
+            var left = grantJournal.Pending().Count;
+            if (recovered > 0) ShowIsland(IslandKind.Done, $"Đã thu hồi {recovered} quyền tạm còn sót", "Từ lần gửi chéo bị gián đoạn trước đó", 420, 5);
+            if (left > 0) ShowIsland(IslandKind.Warn, $"Còn {left} quyền tạm chưa thu hồi được", "DriveLink sẽ thử lại ở lần mở sau; xem Nhật ký bảo mật trong Cài đặt", 500, 7);
+        }
+        catch (Exception ex) when (ex is TokenLockedException or OperationCanceledException or HttpRequestException) { }
     }
     private void ApplyUserSettings()
     {
@@ -471,7 +497,7 @@ public partial class MainWindow : Window
     {
         if (busy || refreshing || HasTransfers) { StatusLabel.Text = "Chờ truyền file hoàn tất trước khi thay đổi tài khoản."; return; }
         poll.Stop();
-        var dialog = new SettingsWindow(state, store, OpenUpdates) { Owner = this };
+        var dialog = new SettingsWindow(state, store, OpenUpdates, account => auth.RevokeAsync(account, lifetime.Token)) { Owner = this };
         dialog.ShowDialog();
         ApplyUserSettings();
         poll.Start();
@@ -681,6 +707,7 @@ public partial class MainWindow : Window
     {
         if (!Ready() || busy || lifetime.IsCancellationRequested || !EnsureFileSelected("tải về") || CurrentFile is not { } file) return;
         if (file.MimeType.StartsWith("application/vnd.google-apps.")) { MessageBox.Show(this, "Dùng Mở trên Drive cho thư mục và tài liệu Google. Bản đầu chưa hỗ trợ xuất tài liệu Google.", "Tải về"); return; }
+        if (!ConfirmRiskyFile(file, "tải về")) return;
         var safeName = string.Concat(file.Name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
         var picker = new SaveFileDialog { FileName = safeName, Title = "Lưu file", OverwritePrompt = true };
         if (picker.ShowDialog(this) != true) return;
@@ -726,6 +753,24 @@ public partial class MainWindow : Window
         if (!Ready() || !EnsureFileSelected("mở trên Drive") || CurrentFile is not { } file) return;
         try { Process.Start(new ProcessStartInfo(file.BrowserUrl) { UseShellExecute = true }); }
         catch (Exception ex) { ShowError(ex); }
+    }
+    private readonly HashSet<string> riskyConfirmed = [];
+    /// <summary>
+    /// Tệp chạy được (.exe, .bat, .ps1, .lnk…) do người khác gửi có thể chứa mã độc. Hỏi trước khi tải hoặc mở thư mục chứa nó;
+    /// mỗi tệp chỉ hỏi một lần trong một lần mở app. Tệp do chính tài khoản này gửi thì không hỏi.
+    /// </summary>
+    private bool ConfirmRiskyFile(DriveItem item, string action)
+    {
+        if (!RiskyFiles.IsExecutable(item.Name) || item.IsMine || riskyConfirmed.Contains(item.Id)) return true;
+        var sender = item.OwnerEmail.Length > 0 ? DisplayPrivacy.MaskEmail(item.OwnerEmail) : "người khác";
+        var answer = MessageBox.Show(this,
+            $"“{item.Name}” là tệp có thể chạy chương trình trên máy, do {sender} gửi vào không gian chung.\n\n" +
+            "Tệp loại này có thể chứa mã độc. Chỉ tiếp tục nếu bạn biết rõ người gửi và đang chờ đúng tệp này. Khi đã tải về, đừng mở nếu Windows hoặc phần mềm diệt virus cảnh báo.\n\n" +
+            $"Vẫn {action}?", "Tệp có thể chạy chương trình", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        SecurityLog.Write(answer == MessageBoxResult.Yes ? "risky-file-accepted" : "risky-file-declined", $"{(answer == MessageBoxResult.Yes ? "Đồng ý" : "Từ chối")} {action} tệp chạy được {Path.GetExtension(item.Name)} từ {sender} · tệp {item.Id}");
+        if (answer != MessageBoxResult.Yes) { StatusLabel.Text = "Đã dừng: tệp chạy được từ " + sender + "."; return false; }
+        riskyConfirmed.Add(item.Id);
+        return true;
     }
     private string? keepSelectionId;
     /// <summary>Xóa danh sách để tải lại nhưng nhớ tệp đang chọn, để chọn lại khi danh sách mới về.</summary>
@@ -838,7 +883,7 @@ public partial class MainWindow : Window
         if (demo) { StatusLabel.Text = "Dữ liệu minh họa chưa có file trên máy."; return; }
         var path = history.FindKnownPath(item.Id);
         if (path is null) { StatusLabel.Text = "File chưa có trên máy hoặc đã di chuyển. Bấm Tải về để lưu bản cục bộ."; return; }
-        if (folderOpening) return;
+        if (folderOpening || !ConfirmRiskyFile(item, "mở thư mục chứa")) return;
         folderOpening = true;
         try
         {

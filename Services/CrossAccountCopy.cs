@@ -58,7 +58,7 @@ public sealed partial class DriveService
 /// Ưu tiên để Google sao chép trên máy chủ (không tốn băng thông máy). Quyền tạm luôn được thu hồi, kể cả khi lỗi hoặc bị hủy.
 /// Chỉ tải qua máy khi Google chặn chia sẻ và người dùng đồng ý.
 /// </summary>
-public sealed class CrossAccountCopier(DriveService drive)
+public sealed class CrossAccountCopier(DriveService drive, IGrantJournal? journal = null)
 {
     private static readonly TimeSpan[] PropagationDelays = [TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(8)];
     public Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = Task.Delay;
@@ -88,15 +88,25 @@ public sealed class CrossAccountCopier(DriveService drive)
             string? permission = null;
             DriveItem? copy = null;
             var revokeFailed = false;
+            // Ghi nhật ký TRƯỚC khi cấp: nếu app bị tắt ngang, lần mở sau vẫn biết để thu hồi.
+            var entry = journal?.Begin(source.Id, item.Id, target.Email);
+            var masked = DisplayPrivacy.MaskEmail(target.Email);
             try
             {
                 phase.Report("Đang cấp quyền xem tạm cho tài khoản đích…");
                 // Tệp chặn sao chép với người xem thì cần quyền chỉnh sửa tạm để Google cho phép tạo bản sao.
                 var role = original.CopyRequiresWriterPermission ? "writer" : "reader";
                 try { permission = await drive.GrantTemporaryAccessAsync(source, item.Id, target.Email, role, ct); }
-                catch (DriveApiException ex) when (ex.Status == HttpStatusCode.Forbidden) { permission = null; }
+                catch (DriveApiException ex) when (ex.Status == HttpStatusCode.Forbidden)
+                {
+                    permission = null;
+                    if (entry is not null) journal!.Complete(entry); // Google từ chối nên chắc chắn chưa có quyền nào được cấp.
+                    entry = null;
+                }
                 if (permission is not null)
                 {
+                    if (entry is not null) journal!.Attach(entry, permission);
+                    SecurityLog.Write("temporary-grant", $"Cấp quyền {role} tạm cho {masked} trên tệp {item.Id}");
                     phase.Report("Google đang sao chép trên máy chủ…");
                     copy = await CopyWithRetryAsync(target, original, ct);
                 }
@@ -107,6 +117,9 @@ public sealed class CrossAccountCopier(DriveService drive)
                 {
                     phase.Report("Đang thu hồi quyền tạm…");
                     revokeFailed = !await TryRevokeAsync(source, item.Id, permission);
+                    SecurityLog.Write(revokeFailed ? "temporary-revoke-failed" : "temporary-revoke", $"{(revokeFailed ? "Chưa thu hồi được" : "Đã thu hồi")} quyền tạm của {masked} trên tệp {item.Id}");
+                    // Thu hồi thất bại thì giữ mục nhật ký để lần mở app sau thử lại.
+                    if (!revokeFailed && entry is not null) journal!.Complete(entry);
                 }
             }
             if (copy is not null) return new(copy, CrossCopyMode.TemporaryShare, 0, watch.Elapsed, Verify(original, copy), revokeFailed);
@@ -135,6 +148,57 @@ public sealed class CrossAccountCopier(DriveService drive)
         try { await drive.RemovePermissionAsync(source, file, permission, timeout.Token); return true; }
         catch (DriveApiException ex) when (ex.Status == HttpStatusCode.NotFound) { return true; }
         catch (Exception) { return false; }
+    }
+
+    /// <summary>
+    /// Thu hồi các quyền tạm còn sót từ lần chạy trước (app bị tắt ngang hoặc thu hồi thất bại).
+    /// Mục chưa có mã quyền (tắt ngang ngay lúc cấp) được tìm theo email đích trên chính tệp đó:
+    /// trước khi cấp, app đã kiểm tra tài khoản đích chưa thấy tệp nên quyền trực tiếp của email đó là quyền tạm.
+    /// Trả về số quyền đã thu hồi; mục chưa xử lý được giữ lại cho lần sau.
+    /// </summary>
+    public async Task<int> RecoverAsync(Func<string, Account?> findAccount, CancellationToken ct)
+    {
+        if (journal is null) return 0;
+        var recovered = 0;
+        foreach (var entry in journal.Pending())
+        {
+            if (findAccount(entry.SourceAccountId) is not { } source) continue;
+            var masked = DisplayPrivacy.MaskEmail(entry.TargetEmail);
+            try
+            {
+                var permission = entry.PermissionId;
+                if (permission is null)
+                {
+                    var found = (await drive.ListPermissionsAsync(source, entry.FileId, ct)).FirstOrDefault(p =>
+                        p.Type == "user" && !p.Inherited && p.Role is "reader" or "writer" && string.Equals(p.Email, entry.TargetEmail, StringComparison.OrdinalIgnoreCase));
+                    permission = found?.Id;
+                }
+                if (permission is null || await TryRevokeAsync(source, entry.FileId, permission))
+                {
+                    journal.Complete(entry.Id);
+                    if (permission is not null) recovered++;
+                    SecurityLog.Write("temporary-revoke-recovered", permission is null ? $"Không còn quyền tạm của {masked} trên tệp {entry.FileId}" : $"Đã thu hồi quyền tạm còn sót của {masked} trên tệp {entry.FileId}");
+                }
+            }
+            catch (DriveApiException ex) when (ex.Status == HttpStatusCode.NotFound)
+            {
+                journal.Complete(entry.Id); // Tệp đã bị xóa: không còn quyền nào để thu hồi.
+            }
+            catch (Exception ex) when (ex is DriveApiException or HttpRequestException) { /* Giữ lại để thử ở lần mở sau. */ }
+        }
+        return recovered;
+    }
+
+    /// <summary>Xóa thư mục tạm của lần tải qua máy bị gián đoạn trước đó (gọi lúc mở app, khi chưa có lượt gửi chéo nào chạy).</summary>
+    public int CleanRelayLeftovers()
+    {
+        if (!Directory.Exists(RelayFolder)) return 0;
+        var removed = 0;
+        foreach (var folder in Directory.EnumerateDirectories(RelayFolder))
+        {
+            try { Directory.Delete(folder, true); removed++; } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+        return removed;
     }
 
     private async Task<CrossCopyResult> RelayAsync(Account source, Account target, DriveItem original, IProgress<string> phase,

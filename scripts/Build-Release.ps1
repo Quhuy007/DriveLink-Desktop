@@ -22,10 +22,11 @@ $sourceNames += @('tests\CloudChecks.cs')
 $sourceNames += @('scripts\Set-CloudDefaults.ps1')
 $sourceNames += @('CLOUD-OAUTH.md')
 $sourceNames += @('AdminSignInWindow.cs')
-$sourceNames += @('global.json','GITHUB-RELEASES.md','scripts\Publish-Portable.ps1','.github\workflows\release.yml','.gitignore')
+$sourceNames += @('global.json','GITHUB-RELEASES.md','SECURITY.md','scripts\Publish-Portable.ps1','.github\workflows\verify.yml','.github\dependabot.yml','.gitignore')
 $sourceNames += @('UpdateWindow.cs','tests\UpdateChecks.cs','.config\dotnet-tools.json','scripts\Build-UpdateRelease.ps1','RELEASE-NOTES.md')
 $sourceNames += @('UiPresentation.cs','FileWindows.cs','tests\FileActionChecks.cs','tests\LayoutChecks.cs')
 $sourceNames += @('tests\CrossCopyChecks.cs','GlassMessageBox.cs')
+$sourceNames += @('tests\SecurityChecks.cs','scripts\New-UpdateSigningKey.ps1','scripts\Sign-Release.ps1','scripts\Verify-Release.ps1','scripts\Publish-Release.ps1')
 foreach ($folder in @('Ui','Preview')) {
  $folderPath = Join-Path $projectRoot $folder
  if (Test-Path -LiteralPath $folderPath) { $sourceNames += Get-ChildItem -LiteralPath $folderPath -File | ForEach-Object { "$folder\$($_.Name)" } }

@@ -106,6 +106,25 @@ public sealed class SupabaseConfigService : IDisposable
         return data.RootElement.Deserialize<CloudRevision>()!;
     }
     private void RequireAdmin() { if (!IsAdmin) throw new InvalidOperationException("Chỉ tài khoản quản trị được đăng/chọn lại cấu hình."); }
+
+    /// <summary>Trạng thái chặn đăng nhập quản trị của địa chỉ IP này trên Cloud (supabase/upgrade-1.2.0.sql). Null khi Cloud chưa nâng cấp hoặc không trả lời được.</summary>
+    public sealed record AdminGate(bool Blocked, DateTimeOffset? CooldownUntil, int Failures);
+    public async Task<AdminGate?> GetAdminGateAsync(CancellationToken ct) => await GuardCallAsync("drivelink_admin_gate", false, ct);
+    public async Task<AdminGate?> ReportAdminFailureAsync(CancellationToken ct) => await GuardCallAsync("drivelink_admin_failed", false, ct);
+    public async Task ReportAdminSuccessAsync(CancellationToken ct) { if (IsAdmin) await GuardCallAsync("drivelink_admin_succeeded", true, ct); }
+    private async Task<AdminGate?> GuardCallAsync(string function, bool authenticated, CancellationToken ct)
+    {
+        try
+        {
+            using var data = await SendAsync(HttpMethod.Post, "rest/v1/rpc/" + function, new { }, authenticated, ct);
+            var root = data.RootElement;
+            if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("blocked", out var blocked) || blocked.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return null;
+            DateTimeOffset? until = root.TryGetProperty("cooldown_until", out var value) && value.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(value.GetString(), out var parsed) ? parsed : null;
+            var failures = root.TryGetProperty("failures", out var count) && count.TryGetInt32(out var number) ? number : 0;
+            return new AdminGate(blocked.GetBoolean(), until, failures);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or JsonException) { return null; }
+    }
     private async Task<JsonDocument> SendAsync(HttpMethod method, string path, object? payload, bool authenticated, CancellationToken ct)
     {
         if (authenticated && (string.IsNullOrEmpty(accessToken) || expires <= DateTimeOffset.UtcNow)) throw new InvalidOperationException("Phiên Cloud hết hạn. Hãy đăng nhập lại.");

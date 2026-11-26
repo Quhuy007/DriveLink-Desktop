@@ -1,14 +1,15 @@
-DriveLink 1.1.2 — Quang Huy
+DriveLink 1.2.0 — Quang Huy
 
-Bản này gồm toàn bộ thay đổi từ 1.0.0 (1.1.0 và 1.1.1 chưa phát hành riêng):
+Bản bảo mật:
 
-- Bấm Tải về hoặc Mở trên Drive khi chưa chọn tệp giờ được hướng dẫn chọn tệp thay vì không phản hồi; đóng Cài đặt không còn làm mất tệp đang chọn.
-- Giao diện kính trên nền tối, bố cục Bento một màn. Danh sách tệp là thẻ chính; bên phải có các thẻ Gửi tệp, Truyền tải, Không gian, Gửi chéo và Dung lượng. Bố cục tự thu gọn trên cửa sổ nhỏ hoặc khi phóng to chữ.
-- Mọi cửa sổ phụ (Cài đặt, Cập nhật, Chia sẻ, Thông tin, Thành viên, Cloud OAuth, Đăng nhập Google), hộp thông báo và menu chuột phải dùng cùng giao diện kính tối; thanh tiêu đề tối trên Windows 11. Hộp thông báo có nút "Có/Không" tiếng Việt, đóng bằng X chọn phương án an toàn.
-- Gửi chéo tài khoản: chọn một tệp, chọn tài khoản Google khác đã thêm vào DriveLink rồi bấm Gửi (hoặc chuột phải → Chia sẻ → Gửi sang tài khoản khác…). Google sao chép trên máy chủ vào Drive của tôi của tài khoản đích, không tốn băng thông máy. Quyền xem tạm chỉ cấp cho đúng email đích, không gửi thư thông báo, và luôn được thu hồi sau khi sao chép. Bản sao được đối chiếu MD5 và kích thước với tệp gốc. Nếu Google chặn chia sẻ, app hỏi trước khi tải qua máy. Chưa hỗ trợ gửi cả thư mục.
-- Thẻ Dung lượng hiển thị dung lượng đã dùng/còn trống của tài khoản đang chọn. Thẻ Truyền tải hiển thị tốc độ tải lên/tải về và biểu đồ theo thời gian thực. Danh sách tệp có biểu tượng màu theo loại tệp.
-- Thông báo dạng "đảo" ở giữa phía trên khi gửi, nhận hoặc gửi chéo xong. Trang kết quả đăng nhập trên trình duyệt cũng dùng nền tối. Hiệu ứng chuyển động tự tắt khi Windows bật giảm hiệu ứng.
+- Từ bản này, app chỉ cài bản cập nhật có chữ ký số của chủ ứng dụng. Kể cả khi tài khoản GitHub bị chiếm, bản cập nhật giả sẽ bị chặn và bản đang dùng được giữ nguyên. Có thể tự kiểm các tệp tải về bằng scripts/Verify-Release.ps1.
+- Token Google được bảo vệ thêm bằng Windows Hello: mỗi lần mở app, Windows hỏi PIN, vân tay hoặc khuôn mặt một lần. Máy không có Windows Hello dùng một khóa riêng trên máy. Sao chép riêng tệp tài khoản sang máy khác không dùng được.
+- Gửi chéo: nếu app bị tắt giữa chừng, quyền xem tạm còn sót sẽ được tự thu hồi ở lần mở sau.
+- Mật khẩu quản trị Cloud: sai 3 lần phải chờ 15 phút, sai 9 lần thì máy bị khóa mở quản trị.
+- Tệp đang chia sẻ công khai có biểu tượng quả cầu cam. Bật "Bất kỳ ai có liên kết" phải xác nhận rủi ro.
+- App cảnh báo trước khi tải về hoặc mở thư mục của tệp chạy được (.exe, .bat, .ps1…) do người khác gửi vào không gian chung.
+- Xóa tài khoản khỏi máy giờ thu hồi quyền tại Google trước. Cài đặt → Tài khoản Google có phần Bảo mật và nhật ký bảo mật (không ghi token).
 
-Đang dùng bản 0.8.0 hoặc 1.0.0 đã cài bằng Setup: mở Kiểm tra cập nhật trong app để tải và cài 1.1.2. Nếu dùng EXE/ZIP cũ, thoát app và cài **QuangHuy.DriveLink-win-x64-Setup.exe** một lần. Tài khoản, OAuth và cài đặt đã lưu được giữ lại. Không cần nâng cấp SQL Cloud cho bản này.
+Đang dùng bản đã cài bằng Setup: mở Kiểm tra cập nhật trong app để cài 1.2.0. Tài khoản và cài đặt được giữ lại. Sau khi nâng cấp, bản 1.1.x cũ không mở được tệp tài khoản mới nữa. Bản này cần Windows 10 1809 trở lên.
 
-Gửi chéo cần ít nhất hai tài khoản Google trong DriveLink. Tài khoản tổ chức có thể chặn chia sẻ ra ngoài; khi đó app đề nghị tải qua máy. Menu ở khay hệ thống vẫn là menu Windows mặc định. Bộ cài Windows x64 đã có .NET; chưa ký mã Windows.
+Quản trị viên Cloud: chạy supabase/upgrade-1.2.0.sql một lần trong Supabase để bật giới hạn số lần thử theo địa chỉ IP ở máy chủ.

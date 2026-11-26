@@ -15,9 +15,13 @@ public sealed class VelopackUpdateBackend : IAppUpdateBackend
     public const string RepositoryUrl = "https://github.com/Quhuy007/DriveLink-Desktop";
     public const string ReleasesUrl = RepositoryUrl + "/releases/latest";
     private readonly UpdateManager manager;
-    public VelopackUpdateBackend(UpdateManager? manager = null)
+    private readonly IReleaseSignatureSource signatures;
+    private readonly IReadOnlyCollection<string>? trustedKeys;
+    public VelopackUpdateBackend(UpdateManager? manager = null, IReleaseSignatureSource? signatures = null, IReadOnlyCollection<string>? trustedKeys = null)
     {
         this.manager = manager ?? new UpdateManager(new GithubSource(RepositoryUrl, null, false), new UpdateOptions { AllowVersionDowngrade = false });
+        this.signatures = signatures ?? new GithubReleaseSignatureSource(RepositoryUrl);
+        this.trustedKeys = trustedKeys;
     }
     public bool CanInstall => manager.IsInstalled;
     public async Task<AppUpdate?> CheckAsync(CancellationToken ct)
@@ -26,7 +30,11 @@ public sealed class VelopackUpdateBackend : IAppUpdateBackend
         var result = await manager.CheckForUpdatesAsync().WaitAsync(ct);
         if (result is null || result.IsDowngrade) return null;
         var target = result.TargetFullRelease;
-        return new(target.Version.ToString(), target.NotesMarkdown ?? "", target.Size, result);
+        var version = target.Version.ToString();
+        // Chỉ báo có bản mới khi bản đó có chữ ký số hợp lệ của chủ ứng dụng; bản không ký (ví dụ do kẻ chiếm GitHub tạo) bị chặn.
+        var (manifest, signature) = await signatures.FetchAsync(version, ct);
+        UpdateTrust.RequireFile(UpdateTrust.Verify(manifest, signature, trustedKeys), version, target.FileName, target.SHA256);
+        return new(version, target.NotesMarkdown ?? "", target.Size, result);
     }
     public Task DownloadAsync(AppUpdate update, Action<int> progress, CancellationToken ct)
         => manager.DownloadUpdatesAsync((UpdateInfo)update.Package, progress, ct);
@@ -63,6 +71,12 @@ public sealed class AppUpdateFlow(IAppUpdateBackend backend)
             Notify(next is null ? "Bạn đang dùng phiên bản mới nhất." : $"Có DriveLink {next.Version}. Bạn có thể cập nhật hoặc để sau.");
         }
         catch (OperationCanceledException) { Notify("Đã hủy kiểm tra cập nhật."); }
+        catch (UpdateTrustException ex)
+        {
+            Available = null; Ready = false;
+            SecurityLog.Write("update-blocked", ex.Message);
+            Notify("Đã chặn một bản cập nhật không có chữ ký số hợp lệ của chủ ứng dụng. " + ex.Message + " Bản đang dùng được giữ nguyên; hãy báo cho chủ ứng dụng.", true);
+        }
         catch { Notify("Chưa kiểm tra được cập nhật. Kiểm tra kết nối mạng rồi thử lại.", true); }
         finally { Busy = false; gate.Release(); Changed?.Invoke(); }
     }
@@ -91,6 +105,7 @@ public sealed class AppUpdateFlow(IAppUpdateBackend backend)
         {
             if (!prepareRestart()) { Notify("Đang chờ các lượt gửi/nhận và thao tác hiện tại hoàn tất…"); return false; }
             Notify("Đang cài bản mới và khởi động lại DriveLink…");
+            SecurityLog.Write("update-install", "Cài bản cập nhật " + Available.Version + " (đã kiểm chữ ký số)");
             backend.ApplyAndRestart(Available);
             return true;
         }

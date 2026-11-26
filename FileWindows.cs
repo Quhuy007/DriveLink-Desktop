@@ -68,7 +68,10 @@ public sealed class FileShareWindow : Window
             var desired = general.SelectedIndex; var role = RoleKeys[generalRole.SelectedIndex]; var recipientDomain = domain.Text.Trim().ToLowerInvariant();
             if (desired == 2 && (Uri.CheckHostName(recipientDomain) != UriHostNameType.Dns || !recipientDomain.Contains('.'))) { domain.BorderBrush = Brushes.Firebrick; SetStatus("Nhập tên miền Google Workspace hợp lệ.", true); return; }
             domain.ClearValue(TextBox.BorderBrushProperty);
-            if (desired != 0 && MessageBox.Show(this, desired == 1 ? "Cho phép bất kỳ ai có liên kết truy cập file với quyền đã chọn?" : "Cho phép người dùng trong tên miền này truy cập bằng liên kết?", "Đổi quyền truy cập chung", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            if (desired == 1 && MessageBox.Show(this,
+                    $"Mở công khai “{file.Name}”?\n\nBẤT KỲ AI có đường liên kết đều {(role == "writer" ? "SỬA ĐƯỢC" : role == "commenter" ? "xem và nhận xét được" : "xem và tải được")} tệp này mà không cần đăng nhập. Liên kết có thể bị chuyển tiếp hoặc lộ ra ngoài và bạn không kiểm soát được ai đã mở.\n\nChỉ làm vậy nếu tệp không chứa thông tin riêng tư.",
+                    "Mở công khai tệp", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+            if (desired == 2 && MessageBox.Show(this, "Cho phép mọi người trong tên miền " + recipientDomain + " truy cập bằng liên kết?", "Đổi quyền truy cập chung", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             await Run(async ct =>
             {
                 var broad = permissions.Where(p => p.Type is "anyone" or "domain").ToList();
@@ -82,7 +85,10 @@ public sealed class FileShareWindow : Window
                     else await drive.GrantPermissionAsync(account, file.Id, type, recipientDomain, role, false, "", ct);
                     applied = true;
                 }
-                await Load(ct); SetStatus("Đã lưu quyền truy cập chung.");
+                await Load(ct);
+                SecurityLog.Write(desired == 1 ? "public-link-on" : desired == 2 ? "domain-link-on" : "public-link-off",
+                    (desired == 1 ? "Mở công khai cho bất kỳ ai có liên kết" : desired == 2 ? "Mở cho tên miền " + recipientDomain : "Đặt lại chế độ bị hạn chế") + $" · quyền {role} · tệp {file.Id}");
+                if (desired != 1) SetStatus("Đã lưu quyền truy cập chung.");
             });
         };
         Loaded += async (_, _) => await Run(Load);
@@ -136,7 +142,8 @@ public sealed class FileShareWindow : Window
         var broad = permissions.FirstOrDefault(p => p.Type == "anyone") ?? permissions.FirstOrDefault(p => p.Type == "domain");
         general.SelectedIndex = broad is null ? 0 : broad.Type == "anyone" ? 1 : 2;
         generalRole.SelectedIndex = Math.Max(0, Array.IndexOf(RoleKeys, broad?.Role ?? "reader")); domain.Text = broad?.Domain ?? "";
-        SetStatus(file.Capabilities.CanShare ? "Quản lý người nhận và liên kết của file." : "Tài khoản này chỉ được xem quyền truy cập; không có quyền thay đổi chia sẻ.");
+        if (broad?.Type == "anyone") SetStatus("Tệp đang CÔNG KHAI: bất kỳ ai có liên kết đều " + (broad.Role == "writer" ? "sửa được" : "mở được") + ". Chọn “Bị hạn chế” rồi lưu để thu hẹp lại.", true);
+        else SetStatus(file.Capabilities.CanShare ? "Quản lý người nhận và liên kết của file." : "Tài khoản này chỉ được xem quyền truy cập; không có quyền thay đổi chia sẻ.");
     }
 }
 

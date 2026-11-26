@@ -1,8 +1,8 @@
 # DriveLink
 
-Repository công khai: [Quhuy007/DriveLink-Desktop](https://github.com/Quhuy007/DriveLink-Desktop). Tải Setup Windows x64 từ Releases không cần đăng nhập GitHub. Cài một lần để bật cập nhật trong app; bộ cài có sẵn .NET. Xem [GITHUB-RELEASES.md](GITHUB-RELEASES.md) về tải trên máy mới và phát hành tự động bằng tag/Actions.
+Repository công khai: [Quhuy007/DriveLink-Desktop](https://github.com/Quhuy007/DriveLink-Desktop). Tải Setup Windows x64 từ Releases không cần đăng nhập GitHub. Cài một lần để bật cập nhật trong app; bộ cài có sẵn .NET. Xem [GITHUB-RELEASES.md](GITHUB-RELEASES.md) về tải trên máy mới và phát hành bản đã ký, và [SECURITY.md](SECURITY.md) về các lớp bảo mật.
 
-Ứng dụng của **Quang Huy**. Bản hiện tại: **1.1.2**. Các bản chạy được giữ riêng trong `versions`, dùng chung kết nối tài khoản đã lưu trên máy.
+Ứng dụng của **Quang Huy**. Bản hiện tại: **1.2.0**. Các bản chạy được giữ riêng trong `versions`, dùng chung kết nối tài khoản đã lưu trên máy.
 
 **Cài đặt → Tài khoản Google → Cloud lấy OAuth**: kết nối mặc định có sẵn. Nhập mật khẩu OAuth rồi tải/mở khóa và Lưu cài đặt, không đăng nhập reader. Ctrl+Shift+A mở hộp mật khẩu admin, xác thực đúng mới mở quản trị/lịch sử. Thiếu/sai mật khẩu có khung đỏ và thông báo nổi bật. Xem [CLOUD-OAUTH.md](CLOUD-OAUTH.md) để nâng cấp Cloud hiện có. Chưa chạy nâng cấp SQL hoặc kiểm tra đăng nhập trên project thật trong quá trình phát triển; kiểm tra app sử dụng phản hồi mô phỏng. Google token chỉ lưu trên từng máy.
 
@@ -20,8 +20,20 @@ Repository công khai: [Quhuy007/DriveLink-Desktop](https://github.com/Quhuy007/
 - `versions/v1.1.0/DriveLink.exe`: giao diện kính nền tối bố cục Bento, gửi chéo tài khoản trên máy chủ Google, thẻ dung lượng và biểu đồ tốc độ. Bản đã cài 0.8.0/1.0.0 có thể cập nhật trong app.
 - `versions/v1.1.1/DriveLink.exe`: mọi cửa sổ phụ, hộp thông báo, menu chuột phải và trang kết quả đăng nhập dùng cùng giao diện kính tối; thanh tiêu đề tối trên Windows 11. Bản đã cài 0.8.0/1.0.0 có thể cập nhật trong app.
 - `versions/v1.1.2/DriveLink.exe`: báo rõ khi bấm Tải về/Mở trên Drive mà chưa chọn tệp; giữ tệp đang chọn sau khi đóng Cài đặt. Bản đã cài 0.8.0/1.0.0 có thể cập nhật trong app.
+- `versions/v1.2.0/DriveLink.exe`: bản cập nhật có chữ ký số, token Google bảo vệ bằng Windows Hello, tự thu hồi quyền tạm còn sót, giới hạn số lần nhập mật khẩu quản trị, cảnh báo tệp công khai và tệp chạy được, nhật ký bảo mật. Cần Windows 10 1809 trở lên.
 - Mỗi bản có ZIP mã nguồn để phục hồi. Bản mới có `release.json` ghi phiên bản và SHA-256.
-- Tạo phiên bản tiếp theo: chạy `scripts/Build-Release.ps1 -Version 1.1.3`. Script từ chối ghi đè phiên bản đã tồn tại. Các bản framework-dependent cần .NET Desktop Runtime 10 và toàn bộ tệp trong thư mục bản đó.
+- Tạo phiên bản tiếp theo: chạy `scripts/Build-Release.ps1 -Version 1.2.1`. Script từ chối ghi đè phiên bản đã tồn tại. Các bản framework-dependent cần .NET Desktop Runtime 10 và toàn bộ tệp trong thư mục bản đó.
+
+## Bảo mật 1.2.0
+
+Chi tiết và các việc chủ ứng dụng phải tự làm nằm trong [SECURITY.md](SECURITY.md). Tóm tắt:
+
+- Bản cập nhật phải có chữ ký số của chủ ứng dụng (`Services/UpdateTrust.cs`). Khóa ký chỉ nằm trên máy phát hành, nên chiếm được GitHub cũng không đẩy được bản giả. GitHub Actions chỉ còn chạy kiểm thử; Dependabot báo bản vá NuGet/Actions.
+- Token Google được mã hóa thêm bằng khóa Windows Hello, hoặc bằng khóa riêng trong Registry nếu máy không có Hello. Khóa nằm tách khỏi `accounts.dat` (`Services/TokenVault.cs`).
+- Quyền tạm của Gửi chéo được ghi lại trước khi cấp, và tự thu hồi khi mở app nếu lần trước bị gián đoạn (`Services/GrantJournal.cs`).
+- Mật khẩu quản trị: sai 3 lần chờ 15 phút, sai 9 lần thì máy bị khóa hẳn (`Services/AdminLockout.cs`). Sau khi chạy `supabase/upgrade-1.2.0.sql`, Cloud chặn theo địa chỉ IP.
+- Quả cầu cam đánh dấu tệp công khai; bật "Bất kỳ ai có liên kết" phải xác nhận rủi ro. App cảnh báo trước khi tải hoặc mở thư mục của tệp chạy được (.exe, .ps1…) do người khác gửi.
+- Nhật ký bảo mật trên máy nằm ở `%LOCALAPPDATA%\DriveLink\security-log.jsonl` và không ghi token (`Services/SecurityLog.cs`).
 
 ## Giao diện 1.1.0 và Gửi chéo
 
@@ -91,7 +103,7 @@ dotnet run --project DriveLink.csproj
 dotnet run --project tests/DriveLink.Checks.csproj -c Release
 ```
 
-Ứng dụng sau khi build: `bin\Release\net10.0-windows\DriveLink.exe`. Cần .NET Desktop Runtime 10 trên máy chạy. Khi phân phối hãy giữ cả thư mục đầu ra, không chỉ sao chép EXE.
+Ứng dụng sau khi build: `bin\Release\net10.0-windows10.0.19041.0\DriveLink.exe` (cần Windows 10 1809 trở lên). Cần .NET Desktop Runtime 10 trên máy chạy. Khi phân phối hãy giữ cả thư mục đầu ra, không chỉ sao chép EXE.
 
 Đóng gói độc lập với runtime (cần tải runtime từ NuGet nếu chưa có):
 
@@ -131,8 +143,8 @@ Testing với quyền Drive thường làm refresh token hết hạn sau 7 ngày
 - Thu hồi quyền thư mục không tự thu hồi quyền riêng đã cấp trên từng file, không xóa file của thành viên và không xóa bản đã tải về.
 - Resumable upload dùng chia khối trong một lần chạy; chưa tự phục hồi sau lỗi mạng hay sau đóng app. Nếu trạng thái gửi không chắc chắn, làm mới/kiểm tra Drive trước khi gửi lại để tránh bản trùng. Hủy một chiều sẽ bỏ cả các file đang chờ của chiều đó; file đã gửi/tải xong được giữ nguyên.
 - Tự cập nhật khi app đang chạy, gồm cả khi ẩn trong khay hệ thống. Chưa có push notification, tự tải xuống hay xác nhận người nhận đã tải. Máy tắt/ngủ hoặc mất mạng thì không truyền/nhận file.
-- “Xóa khỏi máy” chỉ xóa token lưu cục bộ. Có thể thu hồi quyền ứng dụng tại https://myaccount.google.com/connections . DPAPI không bảo vệ trước phần mềm độc hại chạy cùng người dùng Windows.
-- Chưa có bộ cài, chữ ký số, cập nhật tự động hoặc đánh giá bảo mật độc lập. Chưa thể xác nhận tích hợp Google đầu cuối khi chưa có OAuth Client và hai tài khoản thực.
+- “Thu hồi quyền và xóa tài khoản khỏi máy này” gọi Google thu hồi token rồi mới xóa khỏi máy. Nếu không có mạng, thu hồi tại https://myaccount.google.com/connections . Không app nào phát hiện chắc chắn việc một phần mềm khác đọc tệp; SECURITY.md giải thích cách token được tách khóa và bảo vệ bằng Windows Hello.
+- Bộ cài chưa được ký mã Windows (Authenticode), nên Windows có thể cảnh báo về nhà phát hành; riêng bản cập nhật được ký bằng khóa riêng của chủ ứng dụng. Chưa có đánh giá bảo mật độc lập. Chưa thể xác nhận tích hợp Google đầu cuối khi chưa có OAuth Client và hai tài khoản thực.
 
 ## Tài liệu chính thức
 

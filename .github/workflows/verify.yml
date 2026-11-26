@@ -1,0 +1,34 @@
+# Chỉ kiểm thử, không phát hành. Bản phát hành được build và KÝ trên máy của chủ ứng dụng
+# (scripts/Sign-Release.ps1, scripts/Publish-Release.ps1), nên kẻ chiếm được tài khoản GitHub
+# hay một action bị nhiễm độc cũng không tạo được bản cập nhật mà app chấp nhận.
+name: Verify DriveLink
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: drivelink-verify-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      # Action được ghim theo mã commit để một tag bị đổi không thể chạy mã khác.
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+        with:
+          dotnet-version: '10.0.x'
+      - name: Verify app
+        run: |
+          dotnet run --project tests/DriveLink.Checks.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'Application checks failed.' }

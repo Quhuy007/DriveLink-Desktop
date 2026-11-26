@@ -31,7 +31,7 @@ public class PromptWindow : Window
 }
 public class SettingsWindow : Window
 {
-    public SettingsWindow(SavedState state, SecureStore store, Action<Window>? openUpdates = null)
+    public SettingsWindow(SavedState state, SecureStore store, Action<Window>? openUpdates = null, Func<Account, Task>? revokeAccount = null)
     {
         Theme.Apply(this); Title = "Cài đặt — DriveLink · Quang Huy"; Width = 680; Height = 760; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var installed = CompressionTools.Detect();
@@ -94,7 +94,9 @@ public class SettingsWindow : Window
                 try
                 {
                     state.Cloud.LastAppliedRevision = pendingCloudRevision ?? (config == previousConfig ? previousRevision : "");
+                    var clientChanged = config.ClientId != previousConfig.ClientId;
                     state.Config = config; state.Settings = nextSettings; store.Save(state);
+                    if (clientChanged) SecurityLog.Write("oauth-config", "Đổi OAuth Client ID sang …" + config.ClientId[Math.Max(0, config.ClientId.IndexOf('.') - 8)..] + (pendingCloudRevision is null ? " (nhập tệp JSON)" : " (từ Cloud)"));
                     if (nextSettings.StartWithWindows || StartupRegistration.IsEnabled()) StartupRegistration.SetEnabled(nextSettings.StartWithWindows);
                 }
                 catch
@@ -110,15 +112,45 @@ public class SettingsWindow : Window
         stack.Children.Add(new TextBlock { Text = "TÀI KHOẢN ĐÃ LIÊN KẾT", FontSize = 12, Margin = new(0, 24, 0, 10) });
         var accounts = new ListBox { ItemsSource = state.Accounts.ToList(), Height = 100 };
         stack.Children.Add(accounts);
-        var remove = new Button { Content = "Xóa tài khoản khỏi máy này", Margin = new(0, 10, 0, 0) };
-        remove.Click += (_, _) =>
+        var remove = new Button { Content = "Thu hồi quyền và xóa tài khoản khỏi máy này", Margin = new(0, 10, 0, 0) };
+        remove.Click += async (_, _) =>
         {
             if (accounts.SelectedItem is not Account account) return;
-            if (MessageBox.Show(this, "Xóa kết nối đã lưu cho " + account.Email + "? File trên Drive không bị xóa. Quyền Google của ứng dụng có thể thu hồi riêng tại myaccount.google.com/connections.", "Xóa khỏi máy", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
-            try { state.Accounts.Remove(account); store.Save(state); accounts.ItemsSource = state.Accounts.ToList(); }
+            if (MessageBox.Show(this, "Thu hồi quyền của DriveLink trên " + DisplayPrivacy.MaskEmail(account.Email) + " và xóa kết nối đã lưu trên máy này?\n\nToken bị thu hồi sẽ vô dụng kể cả khi đã bị sao chép trước đó. File trên Drive không bị xóa.", "Thu hồi và xóa", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            remove.IsEnabled = false;
+            var revoked = revokeAccount is null;
+            if (revokeAccount is not null)
+            {
+                try { await revokeAccount(account); revoked = true; }
+                catch (Exception ex) when (ex is HttpRequestException or TokenLockedException or InvalidOperationException or System.Security.Cryptography.CryptographicException or OperationCanceledException) { }
+            }
+            try
+            {
+                state.Accounts.Remove(account); store.Save(state); accounts.ItemsSource = state.Accounts.ToList();
+                SecurityLog.Write("account-removed", "Xóa tài khoản " + DisplayPrivacy.MaskEmail(account.Email) + " khỏi máy" + (revoked ? "" : " (chưa thu hồi được trên Google)"));
+                if (!revoked) MessageBox.Show(this, "Đã xóa khỏi máy nhưng chưa thu hồi được quyền trên Google. Hãy thu hồi DriveLink tại myaccount.google.com/connections.", "Chưa thu hồi được", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
             catch (Exception ex) { MessageBox.Show(this, ex.Message, "Chưa lưu được"); }
+            finally { remove.IsEnabled = true; }
         };
         stack.Children.Add(remove);
+        stack.Children.Add(new TextBlock { Text = "BẢO MẬT", FontSize = 12, Margin = new(0, 24, 0, 10) });
+        var protection = new TextBlock { Text = "Token Google được mã hóa trước khi lưu.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted };
+        stack.Children.Add(protection);
+        Loaded += async (_, _) => { try { protection.Text = "Token Google được mã hóa trước khi lưu, khóa mở bằng: " + await TokenVault.Shared.DescribeAsync() + ". Bản cập nhật chỉ được cài khi có chữ ký số hợp lệ của chủ ứng dụng."; } catch (Exception) { } };
+        var log = new Button { Content = "Mở nhật ký bảo mật", Margin = new(0, 10, 0, 0) };
+        log.Click += (_, _) =>
+        {
+            try
+            {
+                Directory.CreateDirectory(SecurityLog.Root);
+                if (!File.Exists(SecurityLog.FilePath)) File.WriteAllText(SecurityLog.FilePath, "");
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("notepad.exe", "\"" + SecurityLog.FilePath + "\"") { UseShellExecute = false });
+            }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Chưa mở được nhật ký"); }
+        };
+        stack.Children.Add(log);
+        stack.Children.Add(new TextBlock { Text = "Nhật ký ghi lần cấp/thu hồi quyền tạm, đổi cấu hình OAuth, cài hoặc chặn bản cập nhật, khóa quản trị, mở công khai tệp và cảnh báo tệp chạy được. Không ghi token hay mật khẩu.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Muted, FontSize = 12, Margin = new(0, 8, 0, 0) });
         var general = new StackPanel { Margin = new(24) };
         general.Children.Add(new TextBlock { Text = "Giao diện và chạy nền", FontSize = 24, FontWeight = FontWeights.SemiBold });
         general.Children.Add(automaticScale); general.Children.Add(scaleLabel); general.Children.Add(uiScale);

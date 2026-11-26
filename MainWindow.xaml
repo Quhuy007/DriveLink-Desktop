@@ -258,7 +258,11 @@
                               <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                               <TextBlock Style="{StaticResource GlIcon}" Text="{Binding Converter={StaticResource FileIcon}}" Foreground="{Binding Converter={StaticResource FileIcon}, ConverterParameter=brush}" FontSize="16" HorizontalAlignment="Left"/>
                               <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding NameLabel}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                <DockPanel>
+                                  <TextBlock DockPanel.Dock="Right" Style="{StaticResource GlIcon}" Text="&#xE774;" FontSize="12" Foreground="{StaticResource GlAmber}" Margin="6,0,0,0"
+                                             Visibility="{Binding IsPublic, Converter={StaticResource GlBoolToVis}}" ToolTip="Đang công khai: bất kỳ ai có liên kết đều mở được tệp này"/>
+                                  <TextBlock Text="{Binding NameLabel}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                </DockPanel>
                                 <TextBlock Text="{Binding Kind}" FontSize="10" Foreground="{StaticResource GlFaint}" Margin="0,1,0,0"/>
                               </StackPanel>
                             </Grid>

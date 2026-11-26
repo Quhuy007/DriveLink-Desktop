@@ -1,3 +1,16 @@
+# v1.2.0
+
+DriveLink 1.2.0 — Quang Huy · Bảo mật
+
+- Bản cập nhật phải có chữ ký số ECDSA P-256 của chủ ứng dụng. Trước khi báo có bản mới, app kiểm `DriveLink-release-manifest.json` và tệp `.sig` trên Release, rồi đối chiếu tên, SHA-256 và số phiên bản của gói Velopack. Bản không ký hoặc ký sai bị chặn và ghi vào nhật ký; bản đang dùng được giữ nguyên. Có các script tạo khóa, ký, kiểm và phát hành trên máy: `scripts/New-UpdateSigningKey.ps1`, `Sign-Release.ps1`, `Verify-Release.ps1`, `Publish-Release.ps1`.
+- GitHub Actions chỉ chạy kiểm thử (`verify.yml`, quyền `contents: read`, action ghim theo mã commit) và không còn tự phát hành. Thêm Dependabot cho NuGet và GitHub Actions.
+- Token Google được mã hóa thêm bằng AES-256-GCM, với khóa Windows Hello (xác nhận khi mở app) hoặc khóa riêng trong Registry khi máy không có Hello. `accounts.dat` dùng thêm khóa phụ DPAPI. Token cũ được mã hóa lại tự động, nhưng bản 1.1.x không đọc được tệp đã nâng cấp. App giờ cần Windows 10 1809 trở lên.
+- Gửi chéo ghi quyền tạm vào một nhật ký mã hóa trước khi cấp. Nếu app bị tắt ngang hoặc thu hồi lỗi, lần mở sau tự thu hồi quyền còn sót và dọn thư mục tạm của lần tải qua máy.
+- Mật khẩu quản trị Cloud: sai 3 lần phải chờ 15 phút, sai 9 lần thì máy bị khóa hẳn. Trạng thái lưu ở hai nơi; dữ liệu bị sửa thì máy bị khóa. SQL `supabase/upgrade-1.2.0.sql` đếm và chặn theo địa chỉ IP ở máy chủ, chặn cả đọc danh sách thành viên và phát hành cấu hình.
+- Tệp đang công khai có biểu tượng quả cầu; bật "Bất kỳ ai có liên kết" phải xác nhận rủi ro. App cảnh báo trước khi tải hoặc mở thư mục của tệp chạy được do người khác gửi.
+- Xóa tài khoản giờ thu hồi token tại Google trước. Cài đặt → Tài khoản Google có phần Bảo mật và nút mở nhật ký bảo mật (`security-log.jsonl`, không ghi token hay email đầy đủ).
+- Thêm 33 kiểm thử bảo mật (tổng 295).
+
 # v1.1.2
 
 DriveLink 1.1.2 — Quang Huy

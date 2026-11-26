@@ -22,6 +22,7 @@ void Check(bool condition, string message) { if (!condition) throw new Exception
 var account = new Account { Id = "test", Email = "test@example.com" };
 var root = Path.Combine(Path.GetTempPath(), "DriveLink-checks-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
+SecurityChecks.Isolate(root);
 try
 {
     var store = new SecureStore(root);
@@ -268,6 +269,7 @@ try
     await CloudChecks.Run(Check, store);
     await FileActionChecks.Run(Check);
     await CrossCopyChecks.Run(Check);
+    await SecurityChecks.Run(Check, root);
     await UpdateChecks.Run(Check, store);
     var uiThread = new Thread(() =>
     {
@@ -408,6 +410,7 @@ try
 }
 finally
 {
+    SecurityChecks.Cleanup();
     // This unique directory contains only test fixtures and generated archives.
     var resolvedRoot = Path.GetFullPath(root);
     var allowedPrefix = Path.Combine(Path.GetFullPath(Path.GetTempPath()), "DriveLink-checks-");

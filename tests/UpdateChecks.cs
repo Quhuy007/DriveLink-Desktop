@@ -13,7 +13,7 @@ static class UpdateChecks
             var packages = Path.Combine(root, "packages"); Directory.CreateDirectory(packages);
             var locator = new Velopack.Locators.TestVelopackLocator("QuangHuy.DriveLink", "0.0.1", packages);
             var manager = new Velopack.UpdateManager(source, new Velopack.UpdateOptions { ExplicitChannel = "win-x64" }, locator);
-            var flow = new AppUpdateFlow(new VelopackUpdateBackend(manager));
+            var flow = new AppUpdateFlow(new VelopackUpdateBackend(manager, new DirectoryReleaseSignatureSource(source)));
             await flow.CheckAsync(CancellationToken.None);
             if (flow.Available?.Version != AppBrand.Version) throw new Exception("Real release feed was not detected: " + flow.Message);
             await flow.DownloadAsync(CancellationToken.None);
@@ -27,7 +27,7 @@ static class UpdateChecks
                 using (var stream = File.OpenWrite(package)) stream.WriteByte(0);
                 var other = Path.Combine(root, "other-packages"); Directory.CreateDirectory(other);
                 var badManager = new Velopack.UpdateManager(damaged, new Velopack.UpdateOptions { ExplicitChannel = "win-x64" }, new Velopack.Locators.TestVelopackLocator("QuangHuy.DriveLink", "0.0.1", other));
-                var bad = new AppUpdateFlow(new VelopackUpdateBackend(badManager));
+                var bad = new AppUpdateFlow(new VelopackUpdateBackend(badManager, new DirectoryReleaseSignatureSource(damaged)));
                 await bad.CheckAsync(CancellationToken.None); await bad.DownloadAsync(CancellationToken.None);
                 if (bad.Ready || !bad.HasError) throw new Exception("Corrupted package was accepted.");
                 Console.WriteLine("PASS Real package corruption is rejected before installation.");

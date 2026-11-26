@@ -107,6 +107,10 @@ public sealed class DriveItem
     [JsonPropertyName("capabilities")] public DriveCapabilities Capabilities { get; set; } = new();
     [JsonPropertyName("contentRestrictions")] public List<DriveContentRestriction> ContentRestrictions { get; set; } = [];
     public bool IsLocked => ContentRestrictions.Any(x => x.ReadOnly);
+    /// <summary>Google chỉ trả danh sách quyền khi tài khoản được phép chia sẻ tệp; không có thì coi như không biết.</summary>
+    [JsonPropertyName("permissions")] public List<DrivePermission>? Permissions { get; set; }
+    public bool IsPublic => Permissions?.Any(x => x.Type == "anyone") == true;
+    public bool IsMine => Owners.Any(x => x.Me);
     public string OwnerEmail => Owners.FirstOrDefault()?.Email ?? "";
     public string OwnerLabel => OwnerEmail.Length == 0 ? "Không xác định" : DisplayPrivacy.MaskEmail(OwnerEmail);
     public string NameLabel => IsLocked ? "🔒 " + Name : Name;

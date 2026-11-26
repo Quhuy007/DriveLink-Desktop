@@ -1,0 +1,12 @@
+# Báo bản vá bảo mật của gói NuGet (Velopack…) và GitHub Actions mỗi tuần, dưới dạng pull request để xem trước khi nhận.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directories: ["/", "/tests"]
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
